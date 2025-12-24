@@ -1,1 +1,46 @@
-site_name: My Docs
+site_name: xiaozhenxu's Blog
+site_author: xiaozhenxu
+site_url: https://xiaozhenxu.github.io/blog
+repo_url: https://github.com/xiaozhenxu/blog/
+repo_name: Blog GitHub
+
+theme:
+  name: material
+  language: zh  # 设置为中文界面
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle:
+        icon: material/brightness-7
+        name: 浅色模式
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle:
+        icon: material/brightness-4
+        name: 深色模式
+  features:
+    - navigation.tabs
+    - navigation.top  # 返回顶部按钮
+    - search.highlight  # 搜索高亮
+
+# 启用插件
+plugins:
+  - search  # 搜索插件
+  # 你可以根据需要逐步添加其他插件，例如：
+  # - blog:  # 博客插件，实现文章列表和分类
+  # - minify:  # 压缩HTML代码
+
+# Markdown扩展
+markdown_extensions:
+  - admonition  # 支持提示框（如“注意”、“警告”）
+  - pymdownx.superfences  # 更好的代码块
+  - pymdownx.tasklist  # 任务列表
+  - toc:  # 自动生成目录
+      permalink: true
+
+extra:
+  homepage: /
+  social:
+    - icon: /fontawesome/brands/github
+      link: https://github.com/xiaozhenxu/
+      name: GitHub
