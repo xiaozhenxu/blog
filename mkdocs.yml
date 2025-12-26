@@ -35,6 +35,7 @@ markdown_extensions:
   - admonition  # 支持提示框（如“注意”、“警告”）
   - pymdownx.superfences  # 更好的代码块
   - pymdownx.tasklist  # 任务列表
+  - pymdownx.arithmatex
   - toc:  # 自动生成目录
       permalink: true
 
@@ -44,3 +45,7 @@ extra:
     - icon: /fontawesome/brands/github
       link: https://github.com/xiaozhenxu/
       name: GitHub
+
+# math 渲染所需的 JS（使用 MathJax）
+extra_javascript:
+  - https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML
