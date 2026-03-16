@@ -1,0 +1,1048 @@
+
+<!doctype html>
+<html lang="zh" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+        <meta name="author" content="xiaozhenxu">
+      
+      
+        <link rel="canonical" href="https://xiaozhenxu.github.io/blog/CUDA/Flash%20Attention.md/">
+      
+      
+        <link rel="prev" href="../CUTLASS%20GEMM%20Kernel%20by%20CUTE/">
+      
+      
+        <link rel="next" href="../Tensor%20Cores/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.5">
+    
+    
+      
+        <title>Flash Attention - xiaozhenxu's Blog</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#flash-attention" class="md-skip">
+          跳转至
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="页眉">
+    <a href="/" title="xiaozhenxu&#39;s Blog" class="md-header__button md-logo" aria-label="xiaozhenxu's Blog" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            xiaozhenxu's Blog
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Flash Attention
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="浅色模式"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="浅色模式" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="深色模式"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="深色模式" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="搜索" placeholder="搜索" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="查找">
+        
+        <button type="reset" class="md-search__icon md-icon" title="清空当前内容" aria-label="清空当前内容" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            正在初始化搜索引擎
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/xiaozhenxu/blog/" title="前往仓库" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    Blog GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="标签" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Welcome to MkDocs
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../CUTLASS%20GEMM%20Kernel%20by%20CUTE/" class="md-tabs__link">
+          
+  
+  
+  CUDA
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="导航栏" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="/" title="xiaozhenxu&#39;s Blog" class="md-nav__button md-logo" aria-label="xiaozhenxu's Blog" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    xiaozhenxu's Blog
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/xiaozhenxu/blog/" title="前往仓库" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    Blog GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Welcome to MkDocs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CUDA
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    CUDA
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../CUTLASS%20GEMM%20Kernel%20by%20CUTE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CUTLASS: GEMM Kernel by CUTE
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Flash Attention
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Tensor%20Cores/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tensor Cores
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../%E6%96%87%E6%A1%A3%E9%98%85%E8%AF%BB%E6%95%B4%E7%90%86/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    文档阅读整理
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="目录">
+  
+  
+  
+    
+  
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="flash-attention">Flash Attention<a class="headerlink" href="#flash-attention" title="Permanent link">&para;</a></h1>
+<h1 id="1">1. 背景<a class="headerlink" href="#1" title="Permanent link">&para;</a></h1>
+<p>在 Transformer 结构当中，标准的 attention 计算公式如下</p>
+<div class="arithmatex">
+<div class="MathJax_Preview">
+ \text{Attention}(Q, K, V) = \text{softmax}\left(\frac{QK^T}{\sqrt{d_k}}\right)V 
+</div>
+<script type="math/tex; mode=display">
+ \text{Attention}(Q, K, V) = \text{softmax}\left(\frac{QK^T}{\sqrt{d_k}}\right)V 
+</script>
+</div>
+<p>从公式的实现上来看，可以划分为三个步骤，即 矩阵乘 - <span class="arithmatex"><span class="MathJax_Preview">softmax</span><script type="math/tex">softmax</script></span> - 矩阵乘。如果用 PyTorch 来实现，如下。</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">torch</span><span class="w"> </span><span class="kn">import</span> <span class="n">Tensor</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">attention</span><span class="p">(</span><span class="n">query</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">):</span>
+    <span class="c1"># query [B, Lq, D]</span>
+    <span class="c1"># key   [B, Lk, D]</span>
+    <span class="c1"># value [B, Lk, D]</span>
+    <span class="n">d</span> <span class="o">=</span> <span class="n">query</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">scale</span> <span class="o">=</span> <span class="n">d</span> <span class="o">**</span> <span class="p">(</span><span class="o">-</span><span class="mf">0.5</span><span class="p">)</span>
+    <span class="n">score</span> <span class="o">=</span> <span class="p">(</span><span class="n">query</span> <span class="o">@</span> <span class="n">key</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">2</span><span class="p">))</span> <span class="o">*</span> <span class="n">scale</span>
+    <span class="n">score</span> <span class="o">=</span> <span class="n">score</span><span class="o">.</span><span class="n">softmax</span><span class="p">(</span><span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">out</span> <span class="o">=</span> <span class="n">score</span> <span class="o">@</span> <span class="n">value</span>
+    <span class="k">return</span> <span class="n">out</span>
+</code></pre></div>
+<p>在大模型推理长序列场景下，传统实现会显式构造/存储 <span class="arithmatex"><span class="MathJax_Preview">*QK^T*</span><script type="math/tex">*QK^T*</script></span> 和 <span class="arithmatex"><span class="MathJax_Preview">softmax</span><script type="math/tex">softmax</script></span> 权重矩阵，他们的显存占用将会达到 <span class="arithmatex"><span class="MathJax_Preview">*O(n^2))</span><script type="math/tex">*O(n^2))</script></span>，*并且对于这部分显存读取将导致带宽瓶颈。</p>
+<h1 id="2-flash-attention">2. Flash Attention 算法<a class="headerlink" href="#2-flash-attention" title="Permanent link">&para;</a></h1>
+<h2 id="21">2.1 算法实现原理<a class="headerlink" href="#21" title="Permanent link">&para;</a></h2>
+<p>本文不涉及 safe softmax 和 online softmax 等数学公式推导，而专注于算法原理和算法实现。</p>
+<p>Flash Attention 的算法原理可以概括为：</p>
+<ul>
+<li>分块计算（tiling）：把 <span class="arithmatex"><span class="MathJax_Preview">*K,V</span><script type="math/tex">*K,V</script></span>* 按序列维度切成小块，与 <span class="arithmatex"><span class="MathJax_Preview">Q</span><script type="math/tex">Q</script></span> 的块配对，在块内完成点积与后续计算。</li>
+<li>online softmax：对 query 每行维护3个累积量：当前最大值 <span class="arithmatex"><span class="MathJax_Preview">m</span><script type="math/tex">m</script></span>、归一化分母 <span class="arithmatex"><span class="MathJax_Preview">\ell = \sum e^{s-m}</span><script type="math/tex">\ell = \sum e^{s-m}</script></span> 、加权和值 <span class="arithmatex"><span class="MathJax_Preview">a = \sum e^{s-m} V</span><script type="math/tex">a = \sum e^{s-m} V</script></span>。每处理一个新块就更新 <span class="arithmatex"><span class="MathJax_Preview">m</span><script type="math/tex">m</script></span>  <span class="arithmatex"><span class="MathJax_Preview">\ell</span><script type="math/tex">\ell</script></span>  <span class="arithmatex"><span class="MathJax_Preview">a</span><script type="math/tex">a</script></span>，最后输出为 <span class="arithmatex"><span class="MathJax_Preview">O = a/\ell</span><script type="math/tex">O = a/\ell</script></span> 。因此不需要保存整行/整块的注意力权重。</li>
+<li>算子融合与低访存：在一个 fused kernel 中把 三个计算步骤 串起来做，尽量只在片上存储中间量，减少对显存的读写，从而显著提速并降低显存占用。</li>
+</ul>
+<p><img alt="image.png" src="../images/Flash%20Attention/image.png" /></p>
+<p>从图中可以看出，Flash Attention 的计算是分步迭代的，这里对 <em>Q</em>,<em>K</em>,<em>V</em>  矩阵的 shape 定义如下：</p>
+<table>
+<thead>
+<tr>
+<th>quey</th>
+<th>[SeqLength_Q,  DIM]</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>key</td>
+<td>[SeqLength_KV, DIM]</td>
+</tr>
+<tr>
+<td>value</td>
+<td>[SeqLength_KV, DIM]</td>
+</tr>
+</tbody>
+</table>
+<p>每个 BLOCK 负责输出矩阵 value 的一部分，因此每个 BLOCK 对应处理的矩阵 shape 定义如下：</p>
+<table>
+<thead>
+<tr>
+<th>block query</th>
+<th>[BLOCK_Q,  DIM]</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>block key</td>
+<td>[SeqLength_KV, DIM]</td>
+</tr>
+<tr>
+<td>block value</td>
+<td>[SeqLength_KV, DIM]</td>
+</tr>
+</tbody>
+</table>
+<h2 id="22-python">2.2 Python 伪代码实现<a class="headerlink" href="#22-python" title="Permanent link">&para;</a></h2>
+<p>下面的 Python 伪代码实现了 Flash Attention 2 论文中描述的算法。每个线程块（block）负责处理 Q 的一个分块（这里指的是在 seqlen 维度上分块），并且会遍历整个 K V。</p>
+<p><strong>Notice: 这样的计算方法使得每个 block 负责计算的部分是独立的，不需要通讯。</strong></p>
+<div class="highlight"><pre><span></span><code><span class="n">scale</span> <span class="o">=</span> <span class="n">DIM</span> <span class="o">**</span> <span class="o">-</span><span class="mf">0.5</span>
+<span class="k">for</span> <span class="n">b_idx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">B</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">tile_Q_idx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">Lq</span> <span class="o">//</span> <span class="n">BLOCK_Q</span><span class="p">):</span>
+        <span class="c1">### 下面是每个核函数执行的内容</span>
+        <span class="n">tile_O</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">BLOCK_Q</span><span class="p">,</span> <span class="n">DIM</span><span class="p">)</span>
+        <span class="n">tile_Q</span> <span class="o">=</span> <span class="n">load_Q</span><span class="p">(</span><span class="n">b_idx</span><span class="p">,</span> <span class="n">tile_Q_idx</span><span class="p">)</span> <span class="c1"># (BLOCK_Q, DIM)</span>
+
+        <span class="k">for</span> <span class="n">tile_KV_idx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">Lk</span> <span class="o">//</span> <span class="n">BLOCK_KV</span><span class="p">):</span>
+            <span class="c1">### S = Q @ K.T</span>
+            <span class="c1">### (BLOCK_Q, DIM) x (BLOCK_KV, DIM).T -&gt; (BLOCK_Q, BLOCK_KV)</span>
+            <span class="c1">### kv 矩阵也是在 seqlen 维度分块，因此这里需要使用 online softmax</span>
+            <span class="n">tile_Q</span>
+            <span class="n">tile_K</span> <span class="o">=</span> <span class="n">load_K</span><span class="p">(</span><span class="n">b_idx</span><span class="p">,</span> <span class="n">tile_KV_idx</span><span class="p">)</span>
+            <span class="n">tile_S</span> <span class="o">=</span> <span class="n">tile_Q</span> <span class="o">@</span> <span class="n">tile_K</span><span class="o">.</span><span class="n">T</span>
+            <span class="n">tile_S</span> <span class="o">=</span> <span class="n">tile_S</span> <span class="o">*</span> <span class="n">scale</span>
+
+            <span class="c1"># online softmax and rescale tile_O</span>
+            <span class="o">...</span>
+
+            <span class="c1">### O = P @ V</span>
+            <span class="n">tile_P</span>                               <span class="c1"># (BLOCK_Q, BLOCK_KV)</span>
+      <span class="n">tile_V</span> <span class="o">=</span> <span class="n">load_V</span><span class="p">(</span><span class="n">b_idx</span><span class="p">,</span> <span class="n">tile_KV_idx</span><span class="p">)</span>  <span class="c1"># (BLOCK_KV, DIM)</span>
+      <span class="n">tile_O</span> <span class="o">+=</span> <span class="n">tile_P</span> <span class="o">@</span> <span class="n">tile_V</span>            <span class="c1"># (BLOCK_Q, DIM)</span>
+</code></pre></div>
+<p>上述代码的实现包含了一个前提，也就是 DIM 较小，这样才能在整个 kernel 函数执行期间将 tile_Q 一直保存在寄存器内存当中。现在主流模型的标准配置就是 <span class="arithmatex"><span class="MathJax_Preview">head\_dim = 128</span><script type="math/tex">head\_dim = 128</script></span>，因为它可以完美契合 NVIDIA GPU 中 Tensor Core 的计算粒度。</p>
+<p>Online-Softmax 简单实现可以如下，对应的是一个 ThreadBlock（线程块）的工作流程：固定负责一部分 Q（<code>tile_Q</code>），然后遍历所有的 K 和 V（<code>tile_K</code> 和 <code>tile_V</code>)。</p>
+<div class="highlight"><pre><span></span><code><span class="n">att_scale</span> <span class="o">=</span> <span class="n">DIM</span> <span class="o">**</span> <span class="o">-</span><span class="mf">0.5</span>
+
+<span class="c1"># attention state</span>
+<span class="n">m</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">BLOCK_Q</span><span class="p">)</span>              <span class="c1"># 运行中的最大值 (Running Max)</span>
+<span class="n">tile_O</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">BLOCK_Q</span><span class="p">,</span> <span class="n">DIM</span><span class="p">)</span>    <span class="c1"># 运行中的分子 (Numerator)</span>
+<span class="n">sumexp</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">BLOCK_Q</span><span class="p">)</span>         <span class="c1"># 运行中的分母 (Denominator)</span>
+
+<span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">Lk</span> <span class="o">//</span> <span class="n">BLOCK_KV</span><span class="p">):</span>
+  <span class="c1"># 1st MMA</span>
+  <span class="n">tile_S</span> <span class="o">=</span> <span class="n">tile_Q</span> <span class="o">@</span> <span class="n">tile_K</span><span class="o">.</span><span class="n">T</span>  <span class="c1"># [BLOCK_Q, BLOCK_KV]</span>
+  <span class="n">tile_S</span> <span class="o">=</span> <span class="n">tile_S</span> <span class="o">*</span> <span class="n">att_scale</span>
+
+  <span class="c1"># online softmax</span>
+  <span class="n">tile_max</span> <span class="o">=</span> <span class="n">tile_S</span><span class="o">.</span><span class="n">amax</span><span class="p">(</span><span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>  <span class="c1"># [BLOCK_Q]</span>
+  <span class="n">new_m</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">tile_max</span><span class="p">)</span>
+  <span class="n">tile_P</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">tile_S</span> <span class="o">-</span> <span class="n">new_m</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+
+  <span class="c1"># rescale</span>
+  <span class="n">scale</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">m</span> <span class="o">-</span> <span class="n">new_m</span><span class="p">)</span>
+  <span class="n">tile_O</span> <span class="o">*=</span> <span class="n">scale</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+  <span class="n">sumexp</span> <span class="o">=</span> <span class="n">sumexp</span> <span class="o">*</span> <span class="n">scale</span> <span class="o">+</span> <span class="n">tile_P</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+  <span class="n">m</span> <span class="o">=</span> <span class="n">new_m</span>  <span class="c1"># save new max</span>
+
+  <span class="c1"># 2nd MMA</span>
+  <span class="n">tile_O</span> <span class="o">+=</span> <span class="n">tile_P</span> <span class="o">@</span> <span class="n">tile_V</span>  <span class="c1"># [BLOCK_Q, DIM]</span>
+
+<span class="c1"># apply normalization</span>
+<span class="n">tile_O</span> <span class="o">/=</span> <span class="n">sumexp</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>  
+</code></pre></div>
+<p>初始化得到的三个变量分别代表下面的意思</p>
+<ul>
+<li><code>m</code> 保存目前为止遇到的最大的 Attention Score。用于防止指数溢出。</li>
+<li><code>tile_Q</code> 保存目前为止累加的加权 Value 和（即 softmax 公式中的分子部分 <span class="arithmatex"><span class="MathJax_Preview">\sum e^{S} V</span><script type="math/tex">\sum e^{S} V</script></span>）</li>
+<li><code>sumexp</code> 保存目前为止的指数和（即 Softmax 公式的分母部分 <span class="arithmatex"><span class="MathJax_Preview">\sum e^{S}</span><script type="math/tex">\sum e^{S}</script></span>）</li>
+</ul>
+<p>为了方便后续的数学表达，首先定义下面的数学符号</p>
+<ul>
+<li><span class="arithmatex"><span class="MathJax_Preview">Q</span><script type="math/tex">Q</script></span> 当前线程块负责的 Query 块</li>
+<li><span class="arithmatex"><span class="MathJax_Preview">K_j,V_j</span><script type="math/tex">K_j,V_j</script></span> 第 j 个 Key/Value 分块</li>
+<li><span class="arithmatex"><span class="MathJax_Preview">S^j</span><script type="math/tex">S^j</script></span> 第 j 个分块的 Attention 值，shape 为 <code>(BLOCK_Q, BLOCK_KV)</code></li>
+<li><span class="arithmatex"><span class="MathJax_Preview">P^j</span><script type="math/tex">P^j</script></span>  第 j 个分块 Attention 值的指数结果，shape 为<code>(BLOCK_Q, BLOCK_KV)</code></li>
+<li><span class="arithmatex"><span class="MathJax_Preview">m^j</span><script type="math/tex">m^j</script></span> 处理完第 j 个分块后当前的 Attention 值局部最大值，shape 为 <code>(BLOCK_Q)</code></li>
+<li><span class="arithmatex"><span class="MathJax_Preview">O^j</span><script type="math/tex">O^j</script></span> 处理完第 j 个块后的输出累加值（对应代码中的 <code>tile_O</code>）</li>
+<li><span class="arithmatex"><span class="MathJax_Preview">l^j</span><script type="math/tex">l^j</script></span> 处理完第 j 个块后指数和（对应代码中的 <code>sumexp</code> ）shape 为 <code>(BLOCK_Q)</code></li>
+</ul>
+<p>对于第 j 个分块<span class="arithmatex"><span class="MathJax_Preview">(j = 1, 2,…)</span><script type="math/tex">(j = 1, 2,…)</script></span>，执行以下的步骤</p>
+<ol>
+<li>计算 Attention 分数，对应代码中的 <code>tile_S = tile_Q @ tile_K.T</code> 此处省略了缩放系数的处理</li>
+</ol>
+<div class="arithmatex">
+<div class="MathJax_Preview">
+S^j=QK^T_j
+</div>
+<script type="math/tex; mode=display">
+S^j=QK^T_j
+</script>
+</div>
+<ol>
+<li>计算局部最大值</li>
+</ol>
+<div class="arithmatex">
+<div class="MathJax_Preview">
+\tilde{m}^j = rowmax(S^j)
+</div>
+<script type="math/tex; mode=display">
+\tilde{m}^j = rowmax(S^j)
+</script>
+</div>
+<ol>
+<li>更新全局最大值</li>
+</ol>
+<div class="arithmatex">
+<div class="MathJax_Preview">
+m^j=max(m^{j-1},\tilde{m}^j)
+</div>
+<script type="math/tex; mode=display">
+m^j=max(m^{j-1},\tilde{m}^j)
+</script>
+</div>
+<ol>
+<li>计算当前块的 P，这里是基于新的局部最大值 <span class="arithmatex"><span class="MathJax_Preview">m^j</span><script type="math/tex">m^j</script></span> 计算得到的，对应代码中的<code>tile_P = torch.exp(tile_S - new_m.unsqueeze(-1))</code></li>
+</ol>
+<div class="arithmatex">
+<div class="MathJax_Preview">
+P^j=exp(S^j-m^j)
+</div>
+<script type="math/tex; mode=display">
+P^j=exp(S^j-m^j)
+</script>
+</div>
+<ol>
+<li>计算修正系数，对应的代码是 <code>scale = torch.exp(m - new_m)</code></li>
+</ol>
+<div class="arithmatex">
+<div class="MathJax_Preview">
+\alpha^j=exp(m^{j-1}-m^j)
+</div>
+<script type="math/tex; mode=display">
+\alpha^j=exp(m^{j-1}-m^j)
+</script>
+</div>
+<ol>
+<li>
+<p>更新分母，对应的代码是 <code>sumexp = sumexp * scale + tile_P.sum(dim=-1)</code> </p>
+<p>新的分母 = (旧分母 x 修正系数) + 当前块的指数和</p>
+<div class="arithmatex">
+<div class="MathJax_Preview">
+l^j=l^{j-1}*\alpha^j+rowsum(P^j)
+</div>
+<script type="math/tex; mode=display">
+l^j=l^{j-1}*\alpha^j+rowsum(P^j)
+</script>
+</div>
+</li>
+<li>
+<p>更新分子，新的分子 = (旧分子 x 修正系数) + (当前块的P x 当前块的V)</p>
+</li>
+</ol>
+<div class="arithmatex">
+<div class="MathJax_Preview">
+O^j=O^{j-1}*\alpha^j+P^jV_j
+</div>
+<script type="math/tex; mode=display">
+O^j=O^{j-1}*\alpha^j+P^jV_j
+</script>
+</div>
+<ol>
+<li>在所有轮数迭代完成之后，用最终的分子分母得到结果</li>
+</ol>
+<h1 id="3-version-1-">3. Version 1 - 基础实现<a class="headerlink" href="#3-version-1-" title="Permanent link">&para;</a></h1>
+<p>通常 MMA 的实现遵循下面的步骤</p>
+<ol>
+<li>使用 <code>cp.async</code> 从 global memory 加载到 shared memory</li>
+<li>使用 <code>ldmatrix</code> 从 shared memory 加载到寄存器文件</li>
+<li>调用 <code>mma.m16n8k16</code> 实现 BF16 的矩阵乘加操作</li>
+</ol>
+<h2 id="31-global-to-shared-memory-data-transfer">3.1 Global to Shared memory data transfer<a class="headerlink" href="#31-global-to-shared-memory-data-transfer" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;cuda_bf16.h&gt;</span>
+
+<span class="k">template</span><span class="w"> </span><span class="o">&lt;</span><span class="kt">int</span><span class="w"> </span><span class="n">HEIGHT</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">WIDTH</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">TB_SIZE</span><span class="o">&gt;</span>
+<span class="n">__device__</span><span class="w"> </span><span class="kr">inline</span>
+<span class="kt">void</span><span class="w"> </span><span class="n">global_to_shared</span><span class="p">(</span><span class="kt">uint32_t</span><span class="w"> </span><span class="n">dst</span><span class="p">,</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="n">nv_bfloat16</span><span class="w"> </span><span class="o">*</span><span class="n">src</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">src_stride</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">tid</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="c1">// cp.async.cg.shared.global 指令为每个 cuda 线程执行 16 字节的传输，即 8 个 bf16</span>
+<span class="w">  </span><span class="k">constexpr</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">num_elems</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">16</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="k">sizeof</span><span class="p">(</span><span class="n">nv_bfloat16</span><span class="p">);</span>
+<span class="w">  </span><span class="k">constexpr</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">num_iters</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">HEIGHT</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">WIDTH</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="p">(</span><span class="n">TB_SIZE</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">num_elems</span><span class="p">);</span>
+
+<span class="w">  </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">iter</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">iter</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">num_iters</span><span class="p">;</span><span class="w"> </span><span class="n">iter</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">idx</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">iter</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">TB_SIZE</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">tid</span><span class="p">)</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">num_elems</span><span class="p">;</span>
+<span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">row</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">idx</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">WIDTH</span><span class="p">;</span>
+<span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">col</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">idx</span><span class="w"> </span><span class="o">%</span><span class="w"> </span><span class="n">WIDTH</span><span class="p">;</span>
+
+<span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="kt">uint32_t</span><span class="w"> </span><span class="n">dst_addr</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">dst</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="p">(</span><span class="n">row</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">WIDTH</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">col</span><span class="p">)</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="k">sizeof</span><span class="p">(</span><span class="n">nv_bfloat16</span><span class="p">);</span>
+<span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="n">nv_bfloat16</span><span class="w"> </span><span class="o">*</span><span class="n">src_addr</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">src</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="p">(</span><span class="n">row</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">src_stride</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">col</span><span class="p">);</span>
+<span class="w">    </span><span class="k">asm</span><span class="w"> </span><span class="k">volatile</span><span class="p">(</span><span class="s">&quot;cp.async.cg.shared.global [%0], [%1], 16;&quot;</span><span class="w"> </span><span class="o">::</span><span class="w"> </span><span class="s">&quot;r&quot;</span><span class="p">(</span><span class="n">dst_addr</span><span class="p">),</span><span class="w"> </span><span class="s">&quot;l&quot;</span><span class="p">(</span><span class="n">src_addr</span><span class="p">));</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>上面的代码是使用内联汇编 <code>cp.async.cg.shared.global</code> ****来实现的，这条 PTX 指令为每个 CUDA 线程执行 16 字节的数据传输，即 8 个 BF16 元素（<code>num_elems = 16 / sizeof(nv_bfloat16)</code>）。为了确保合并内存访问（coalesced memory access），连续的线程将负责处理连续的 8xBF16 数据组。</p>
+<p>循环 <code>for (int iter = 0; iter &lt; num_iters; iter++)</code> 这样写是为了让编译器 (nvcc) 能够完全展开（unroll）该循环。<code>num_iters</code> 在编译时是已知的（由 <code>constexpr</code> 保证）。如果我们在循环中混入 <code>tid</code>（对编译器来说这是一个“动态”变量），循环就无法被展开，即使我们知道关于该变量的某些约束条件（例如 <code>tid &lt; TB_SIZE</code>）。</p>
+<p>共享内存指针 <code>dst</code> 的数据类型是 <code>uint32_t</code>。这是有意为之的。几乎所有的 PTX 指令都期望共享内存地址处于共享状态空间（shared state space）中。我们可以使用 <code>static_cast&lt;uint32_t&gt;(__cvta_generic_to_shared(ptr))</code> 将 C++ 指针（通用地址）转换为共享状态空间地址。这一步是在 <code>global_to_shared()</code> 外部完成的。</p>
+<p>为了完成 <code>cp.async</code> 的使用，我们还需要添加以下内容：</p>
+<ul>
+<li><code>cp.async.commit_group</code> <strong>(PTX)</strong>：将之前发出的所有 <code>cp.async</code> 指令提交到一个 <code>cp.async</code> 组中。这个组将作为同步的单位。</li>
+<li><code>cp.async.wait_all</code> <strong>(PTX)</strong>：等待所有已提交的组完成。</li>
+<li><code>__syncthreads()</code>：确保（一个线程块中的）所有线程在读取共享内存中加载的数据之前都到达这里（因为一个线程可能会读取另一个线程加载的数据）。更重要的是，这会将新数据的可见性（visibility）广播给线程块中的所有线程。如果没有 <code>__syncthreads()</code>，编译器可以自由地将内存访问优化掉。</li>
+</ul>
+<div class="highlight"><pre><span></span><code><span class="c1">// nv_bfloat16 *Q</span>
+<span class="c1">// uint32_t Q_smem</span>
+<span class="c1">// constexpr int TB_SIZE = 32 * 4</span>
+<span class="c1">// constexpr int DIM = 128</span>
+
+<span class="n">global_to_shared</span><span class="o">&lt;</span><span class="n">BLOCK_Q</span><span class="p">,</span><span class="w"> </span><span class="n">DIM</span><span class="p">,</span><span class="w"> </span><span class="n">TB_SIZE</span><span class="o">&gt;</span><span class="p">(</span><span class="n">Q_smem</span><span class="p">,</span><span class="w"> </span><span class="n">Q</span><span class="p">,</span><span class="w"> </span><span class="n">DIM</span><span class="p">,</span><span class="w"> </span><span class="n">tid</span><span class="p">);</span>
+<span class="k">asm</span><span class="w"> </span><span class="k">volatile</span><span class="p">(</span><span class="s">&quot;cp.async.commit_group&quot;</span><span class="p">);</span>
+<span class="k">asm</span><span class="w"> </span><span class="k">volatile</span><span class="p">(</span><span class="s">&quot;cp.async.wait_all&quot;</span><span class="p">);</span>
+<span class="n">__syncthreads</span><span class="p">();</span>
+</code></pre></div>
+<h2 id="32-shared-memory-to-register-memory-data-transfer"><strong>3.2 Shared memory to Register memory data transfer</strong><a class="headerlink" href="#32-shared-memory-to-register-memory-data-transfer" title="Permanent link">&para;</a></h2>
+<p>在实现全局内存向共享内存的数据迁移的时候，我们从一个 thread block 和每个 cuda thread 的角度来考虑分块。但是，在做共享内存向寄存器文件的数据迁移的时候，因为寄存器数据后续服务于 MMA 指令，这使得我们以 warp 为单位来考虑数据切块。</p>
+<p><img alt="image.png" src="../images/Flash%20Attention/image%201.png" /></p>
+<p>解释一下上面这张图，首先解释一下各个变量所指代的意义</p>
+<ul>
+<li><code>BLOCK_Q</code> kernel 函数当中每个 block 负责 query 的 seq_len</li>
+<li><code>BLOCK_KV</code> 与 <code>BLOCK_Q</code> 不同，是在每个 kernel 函数内部对 kv 矩阵 seq 维度上的切分</li>
+</ul>
+<p>让线程块中的每个 warp 处理 tile_Q 的一部分，即沿着 Q 的序列长度维度进行切分，因此不同的 warp 会访问 tile_Q 的不同部分。但是，在 KV 序列长度的循环中，每个 warp 都会访问到每一个 tile_K tile_V 分块。</p>
+<p>由于我们将使用<code>mma.m16n8k16</code> 来计算矩阵乘法，每个 16x8 的 output tile 需要 16x16 的 A tile 和 8x16 的 B tile。 <code>ldmatrix</code> 可以加载一个、两个或者四个由 16bits 元素组成的 8x8 tile</p>
+<ul>
+<li>A_tile (16x16) 需要四个 8x8 分块 - &gt; 使用 <code>ldmatrix.x4</code></li>
+<li>B_tile (8x18) 需要两个 8x8 分块 - &gt; 使用 <code>ldmatrix.x2</code></li>
+</ul>
+<p><img alt="image.png" src="../images/Flash%20Attention/image%202.png" /></p>
+<p>根据上图，想要使用 <code>ldmatrix</code> ，每个线程需要提供某一行的地址。线程 0-7 选择第 1 个 8x8 分块，线程 8-15 选择第 2 个 8x8 分块，依次类推。</p>
+<p>下面是使用 <code>ldmatrix_x4</code> 实现 Q 从 shared_memory 向 register 搬运的代码</p>
+<div class="highlight"><pre><span></span><code><span class="w"> </span><span class="c1">// 定义 Tensor Core 的计算粒度</span>
+<span class="w"> </span><span class="k">constexpr</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">MMA_M</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">16</span><span class="p">;</span>
+<span class="w"> </span><span class="k">constexpr</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">MMA_N</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">8</span><span class="p">;</span>
+<span class="w"> </span><span class="k">constexpr</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">MMA_K</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">16</span><span class="p">;</span>
+
+<span class="w"> </span><span class="c1">// Q_smem 是共享内存的起始地址指针</span>
+<span class="w"> </span><span class="kt">uint32_t</span><span class="w"> </span><span class="n">Q_smem</span><span class="p">;</span>
+
+<span class="w"> </span><span class="c1">// Q_rmem 是寄存器数组</span>
+<span class="w"> </span><span class="c1">// [WARP_Q / MMA_M] 垂直方向需要切几刀（例如warp负责64行，每刀16行，得到4块）</span>
+<span class="w"> </span><span class="c1">// [DIM / MMA_K] 水平方向需要切几刀（例如 dim=128, 每刀16列，得到8块）</span>
+<span class="w"> </span><span class="c1">// [4] 每个 tile 为 16x16，half 类型(2字节），每个线程需要保存8个元素，用到4个32位寄存器</span>
+<span class="w"> </span><span class="kt">uint32_t</span><span class="w"> </span><span class="n">Q_rmem</span><span class="p">[</span><span class="n">WARP_Q</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">MMA_M</span><span class="p">][</span><span class="n">DIM</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">MMA_K</span><span class="p">][</span><span class="mi">4</span><span class="p">];</span>
+<span class="w"> </span><span class="c1">// 双层循环：将大矩阵切分成 16*16 的 tile</span>
+<span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">mma_id_q</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">mma_id_q</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">WARP_Q</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">MMA_M</span><span class="p">;</span><span class="w"> </span><span class="n">mma_id_q</span><span class="o">++</span><span class="p">)</span>
+<span class="w">  </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">mma_id_d</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">mma_id_d</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">DIM</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">MMA_K</span><span class="p">;</span><span class="w"> </span><span class="n">mma_id_d</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">const</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">row</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">warp_id</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">WARP_Q</span><span class="p">)</span><span class="w"> </span><span class="c1">// 1. 跳过之前 warp 负责的行</span>
+<span class="w">                                  </span><span class="o">+</span><span class="w"> </span><span class="p">(</span><span class="n">mma_id_q</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">MMA_M</span><span class="p">)</span><span class="w"> </span><span class="c1">// 2. 跳过当前 warp 已经处理过的 16x16 块</span>
+<span class="w">                                  </span><span class="o">+</span><span class="w"> </span><span class="p">(</span><span class="n">lane_id</span><span class="w"> </span><span class="o">%</span><span class="w"> </span><span class="mi">16</span><span class="p">);</span><span class="w"> </span><span class="c1">// 3. warp 内的行偏移</span>
+<span class="w">        </span><span class="k">const</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">col</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">mma_id_d</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">MMA_K</span><span class="p">)</span><span class="w"> </span><span class="c1">// 1. 跳过已经处理的列块</span>
+<span class="w">                      </span><span class="o">+</span><span class="w"> </span><span class="p">(</span><span class="n">lane_id</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="mi">16</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">8</span><span class="p">);</span><span class="w"> </span><span class="c1">// 2. warp 内的列偏移</span>
+<span class="w">        </span><span class="c1">// 计算最终的共享内存地址 (转成字节偏移)</span>
+<span class="w">        </span><span class="k">const</span><span class="w"> </span><span class="kt">uint32_t</span><span class="w"> </span><span class="n">addr</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Q_smem</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="p">(</span><span class="n">row</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">DIM</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">col</span><span class="p">)</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="k">sizeof</span><span class="p">(</span><span class="n">nv_bfloat16</span><span class="p">);</span>
+
+<span class="w">        </span><span class="c1">// 执行 PTX 指令</span>
+<span class="w">        </span><span class="n">ldmatrix_x4</span><span class="p">(</span><span class="n">Q_rmem</span><span class="p">[</span><span class="n">mma_id_q</span><span class="p">][</span><span class="n">mma_id_d</span><span class="p">],</span><span class="w"> </span><span class="n">addr</span><span class="p">);</span>
+<span class="w"> </span><span class="p">}</span>
+</code></pre></div>
+<p><img alt="image.png" src="../images/Flash%20Attention/image%203.png" /></p>
+<p>注意，前面说到，“每个线程需要提供某一行的地址”。这里做出具体说明，一个 16x16 的矩阵块，划分为 4 个 8x8 的更小矩阵块，一个 warp 当中每 8 个线程处理其中的某个小矩阵块，即 1x8 的块，这也就是针对某个线程需要具体计算得出的某一行的地址。</p>
+<p><img alt="image.png" src="../images/Flash%20Attention/image%204.png" /></p>
+<h3 id="online-softmax-cuda-c">Online softmax - CUDA C++<a class="headerlink" href="#online-softmax-cuda-c" title="Permanent link">&para;</a></h3>
+<p><strong>Row max</strong></p>
+<p>首先看对 <code>tile_S</code> 取行最大值，这里有个想当然的做法，将一个 <code>tile_S</code> 计算出来之后，放回 shared memory，然后再对这块 shared memory 处理得到 row max。</p>
+<p>但是，从文档的做法来看，他是打算直接在寄存器当中去做处理，一个 <code>tile_S</code> 是通过<strong>多个 warp 并行以及 warp 内的多次串行 MMA 指令</strong>操作得到的。因此，针对 <code>tile_S</code> ，每个线程在寄存器中保存了下面的数据</p>
+<div class="highlight"><pre><span></span><code><span class="nb">float</span> <span class="n">S_rmem</span><span class="p">[</span><span class="n">WARP_Q</span> <span class="o">/</span> <span class="n">MMA_M</span><span class="p">][</span><span class="n">BLOCK_KV</span> <span class="o">/</span> <span class="n">MMA_N</span><span class="p">][</span><span class="mi">4</span><span class="p">];</span>
+</code></pre></div>
+<p><img alt="image.png" src="../images/Flash%20Attention/image%205.png" /></p>
+<p>前面的两个维度表示 1 个 warp 处理的数据被 mma 切块；</p>
+<p><strong><code>4</code></strong> 对应上图中的 c0、c1、c2、c3，也就是说，每个线程持有来自 2 行的 2 个连续元素。为了在（MMA 输出分块的）行内进行归约（reduction），我们首先对单个线程持有的 2 个连续元素进行归约，然后在 4 个线程组成的组内（即 T0-T3，T4-T7 等）进行归约。然而，行归约实际上是针对整个 <strong><code>tile_S</code></strong> 进行的，因此我们还需要遍历 <strong><code>S_rmem</code></strong> 中的 <strong><code>BLOCK_KV / MMA_N</code></strong> 这一维。这一步可以在进行 4 线程组归约之前，与线程级归约结合起来完成。</p>
+<p><img alt="image.png" src="../images/Flash%20Attention/image%206.png" /></p>
+<p>这个地方引入 <code>__shfl_xor_sync</code> ，可以直接获取指定线程寄存器当中的值。在一个 MMA tile 中，4 个连续的线程编号负责一行数据，比如编号 id 为 0,1,2,3 的线程。分成两个步骤，第一步先比较 id 为 0 &amp; 1 和 2 &amp; 3 线程，第二步比较第一步获得的最大值，最终 4 个线程都取得最大值。</p>
+<p><strong>Rescaling</strong></p>
+<p>在计算完当前分块(tile)的行最大值后，可以计算得到输出结果的重缩放因子，以及归一化项（即每一行的指数和）。</p>
+<div class="highlight"><pre><span></span><code><span class="c1">// 更新行最大值</span>
+<span class="c1">// this_rowmax 是当前分块计算出的局部最大值</span>
+<span class="c1">// rowmax 是之前所有分块累计的全局最大值</span>
+<span class="n">this_rowmax</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">max</span><span class="p">(</span><span class="n">this_rowmax</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="w"> </span><span class="n">rowmax</span><span class="p">[</span><span class="n">mma_id_q</span><span class="p">][</span><span class="mi">0</span><span class="p">]);</span>
+<span class="n">this_rowmax</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">max</span><span class="p">(</span><span class="n">this_rowmax</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span><span class="w"> </span><span class="n">rowmax</span><span class="p">[</span><span class="n">mma_id_q</span><span class="p">][</span><span class="mi">1</span><span class="p">]);</span>
+
+<span class="c1">// 计算针对之前输出 O 的重缩放因子</span>
+<span class="kt">float</span><span class="w"> </span><span class="n">rescale</span><span class="p">[</span><span class="mi">2</span><span class="p">];</span>
+<span class="c1">// 因子 = exp(旧最大值 - 新最大值)</span>
+<span class="n">rescale</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">__expf</span><span class="p">(</span><span class="n">rowmax</span><span class="p">[</span><span class="n">mma_id_q</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">this_rowmax</span><span class="p">[</span><span class="mi">0</span><span class="p">]);</span>
+<span class="n">rescale</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">__expf</span><span class="p">(</span><span class="n">rowmax</span><span class="p">[</span><span class="n">mma_id_q</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">this_rowmax</span><span class="p">[</span><span class="mi">1</span><span class="p">]);</span>
+
+<span class="c1">// 遍历输出矩阵 O 的所有部分进行重缩放</span>
+<span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">mma_id_d</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">mma_id_d</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">DIM</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">MMA_N</span><span class="p">;</span><span class="w"> </span><span class="n">mma_id_d</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="c1">// 0和1属于第一行，乘第一行的因子</span>
+<span class="w">  </span><span class="n">O_rmem</span><span class="p">[</span><span class="n">mma_id_q</span><span class="p">][</span><span class="n">mma_id_d</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span><span class="w"> </span><span class="o">*=</span><span class="w"> </span><span class="n">rescale</span><span class="p">[</span><span class="mi">0</span><span class="p">];</span>
+<span class="w">  </span><span class="n">O_rmem</span><span class="p">[</span><span class="n">mma_id_q</span><span class="p">][</span><span class="n">mma_id_d</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span><span class="w"> </span><span class="o">*=</span><span class="w"> </span><span class="n">rescale</span><span class="p">[</span><span class="mi">0</span><span class="p">];</span>
+<span class="w">  </span><span class="c1">// 2和3属于第二行，乘第二行的因子</span>
+<span class="w">  </span><span class="n">O_rmem</span><span class="p">[</span><span class="n">mma_id_q</span><span class="p">][</span><span class="n">mma_id_d</span><span class="p">][</span><span class="mi">2</span><span class="p">]</span><span class="w"> </span><span class="o">*=</span><span class="w"> </span><span class="n">rescale</span><span class="p">[</span><span class="mi">1</span><span class="p">];</span>
+<span class="w">  </span><span class="n">O_rmem</span><span class="p">[</span><span class="n">mma_id_q</span><span class="p">][</span><span class="n">mma_id_d</span><span class="p">][</span><span class="mi">3</span><span class="p">]</span><span class="w"> </span><span class="o">*=</span><span class="w"> </span><span class="n">rescale</span><span class="p">[</span><span class="mi">1</span><span class="p">];</span>
+<span class="p">}</span>
+
+<span class="c1">// 保存新的行最大值供下一次迭代使用</span>
+<span class="n">rowmax</span><span class="p">[</span><span class="n">mma_id_q</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">this_rowmax</span><span class="p">[</span><span class="mi">0</span><span class="p">];</span>
+<span class="n">rowmax</span><span class="p">[</span><span class="n">mma_id_q</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">this_rowmax</span><span class="p">[</span><span class="mi">1</span><span class="p">];</span>
+</code></pre></div>
+<h2 id="version-2-xor-swizzling">Version 2 - XOR Swizzling<a class="headerlink" href="#version-2-xor-swizzling" title="Permanent link">&para;</a></h2>
+<h3 id="profiling">Profiling<a class="headerlink" href="#profiling" title="Permanent link">&para;</a></h3>
+<p><img alt="image.png" src="../images/Flash%20Attention/image%207.png" /></p>
+<p>上图的横轴表示平均每个调度器在任意一个时钟周期内，有多少个 Warp 处于该状态。</p>
+<ul>
+<li><strong>Stall Math Pipe Throttle 等待硬件计算单元</strong></li>
+<li><strong>Stall Short Scoreboard 等待从共享内存或者 L1 Cache 上读取数据</strong></li>
+<li><strong>Stall Long Scoreboard  等待从全局内存中读取数据</strong></li>
+</ul>
+<h3 id="swizzle">Swizzle<a class="headerlink" href="#swizzle" title="Permanent link">&para;</a></h3>
+<p>通过改变数据在 Shared Memory 中的物理存储地址（而不改变逻辑上的行列关系），来避免 Bank Conflict（如果一个 Warp 中的多个线程同时访问同一个 Bank 的不同地址，访问就会串行化，导致性能下降）。</p>
+<p>而使用 <code>ldmatrix</code> 指令从 Shared Memory 读取矩阵块时，如果数据是标准的“行主序”排列，会导致严重的 Bank Conflict。</p>
+<div class="highlight"><pre><span></span><code><span class="k">template</span><span class="w"> </span><span class="o">&lt;</span><span class="kt">int</span><span class="w"> </span><span class="n">STRIDE</span><span class="o">&gt;</span>
+<span class="n">__device__</span><span class="w"> </span><span class="kt">uint32_t</span><span class="w"> </span><span class="n">swizzle</span><span class="p">(</span><span class="kt">uint32_t</span><span class="w"> </span><span class="n">index</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// 如果是一个跨度比较小的矩阵，则不需要 swizzle</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="k">constexpr</span><span class="p">(</span><span class="n">STRIDE</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">16</span><span class="p">)</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="n">index</span><span class="p">;</span>
+
+<span class="w">    </span><span class="c1">// 1. 计算当前地址属在逻辑上属于哪一行</span>
+<span class="w">    </span><span class="c1">// index 是字节偏移量，STRIDE 是一行的字节数</span>
+<span class="w">    </span><span class="kt">uint32_t</span><span class="w"> </span><span class="n">row_idx</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">index</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">STRIDE</span><span class="w"> </span><span class="o">%</span><span class="w"> </span><span class="mi">8</span><span class="err">；</span>
+
+<span class="w">    </span><span class="c1">// 2. 计算 xor 偏移量</span>
+
+<span class="w">    </span><span class="c1">// 3. 执行 xor 操作</span>
+
+
+
+<span class="p">}</span>
+</code></pre></div>
+<aside>
+💡
+
+注意点
+
+STRIDE 表示每一行的字节数量。
+
+如果 STRIDE  数值比较小，这意味着数据比较紧凑，不需要 swizzle。
+
+如果 STRIDE 为 16，则每行有 4 个 bank，任意连续的 8 行数据（Row 0～7）完全分布在 Bank 0 到 Bank 31 上，没有任何的重叠。因此，在使用 ldmatrix 指令搬运数据的时候将天然的 conflict free
+
+</aside>
+
+<h1 id="fqa">FQA<a class="headerlink" href="#fqa" title="Permanent link">&para;</a></h1>
+<ol>
+<li>FlashAttention 主要是解决了什么问题？<ul>
+<li>将原本的 3 个算子融合为 1 个算子，原本需要 6 次针对 HBM 内存的读取写入操作，而现在只需要 2 次，减少访存耗时，增加了计算强度(即每个读入数据的计算步骤增多了)</li>
+<li>不需要将中间结果（即 shape 是<code>(qSeqlen, kSeqlen)</code> 的矩阵）存储进 HBM 中，节约了显存</li>
+</ul>
+</li>
+</ol>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  回到页面顶部
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+    <a href="https://github.com/xiaozhenxu/" target="_blank" rel="noopener" title="GitHub" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.top", "search.highlight"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "\u5df2\u590d\u5236", "clipboard.copy": "\u590d\u5236", "search.result.more.one": "\u5728\u8be5\u9875\u4e0a\u8fd8\u6709 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.more.other": "\u5728\u8be5\u9875\u4e0a\u8fd8\u6709 # \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.none": "\u6ca1\u6709\u627e\u5230\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.one": "\u627e\u5230 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.other": "# \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.placeholder": "\u952e\u5165\u4ee5\u5f00\u59cb\u641c\u7d22", "search.result.term.missing": "\u7f3a\u5c11", "select.version": "\u9009\u62e9\u5f53\u524d\u7248\u672c"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML"></script>
+      
+    
+  </body>
+</html>
