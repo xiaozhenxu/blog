@@ -1,0 +1,2398 @@
+
+<!doctype html>
+<html lang="zh" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+        <meta name="author" content="xiaozhenxu">
+      
+      
+        <link rel="canonical" href="https://xiaozhenxu.github.io/blog/CUDA/System%20Optimization/">
+      
+      
+        <link rel="prev" href="../Flash%20Attention/">
+      
+      
+        <link rel="next" href="../Tensor%20Cores/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>System Optimization - xiaozhenxu's Blog</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#_1" class="md-skip">
+          跳转至
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="页眉">
+    <a href="/" title="xiaozhenxu&#39;s Blog" class="md-header__button md-logo" aria-label="xiaozhenxu's Blog" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            xiaozhenxu's Blog
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              System Optimization
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="浅色模式"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="浅色模式" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="深色模式"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="深色模式" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="搜索" placeholder="搜索" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="查找">
+        
+        <button type="reset" class="md-search__icon md-icon" title="清空当前内容" aria-label="清空当前内容" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            正在初始化搜索引擎
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/xiaozhenxu/blog/" title="前往仓库" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    Blog GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="标签" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Welcome to MkDocs
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../CUTLASS%20GEMM%20Kernel%20by%20CUTE/" class="md-tabs__link">
+          
+  
+  
+  CUDA
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="导航栏" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="/" title="xiaozhenxu&#39;s Blog" class="md-nav__button md-logo" aria-label="xiaozhenxu's Blog" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    xiaozhenxu's Blog
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/xiaozhenxu/blog/" title="前往仓库" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    Blog GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Welcome to MkDocs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CUDA
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    CUDA
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../CUTLASS%20GEMM%20Kernel%20by%20CUTE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CUTLASS: GEMM Kernel by CUTE
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Flash%20Attention/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Flash Attention
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    System Optimization
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    System Optimization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="目录">
+  
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      目录
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        一、问题背景与目标
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="一、问题背景与目标">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#11-vla" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.1 为什么 VLA 推理慢？
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#12" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.2 目标
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        二、优化总览与效果
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="二、优化总览与效果">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-rtx-40902" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1 逐步优化效果（RTX 4090，2 视图）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2 多视图对比（最终优化后）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#23-rtx-3080" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.3 我的 RTX 3080 实测
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cpu-cuda-graph" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        三、优化一：消除 CPU 开销（CUDA Graph）
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="三、优化一：消除 CPU 开销（CUDA Graph）">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#31" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.1 问题根因
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#32-cuda-graph" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.2 CUDA Graph 原理
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#33-pi0_inferpy1302" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.3 代码实现（pi0_infer.py:1302）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#34-torchcompile" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.4 与 torch.compile 的关系
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#35-cuda-graph-rtx-30801000-kernel" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.5 CUDA Graph 实测对比（RTX 3080，1000 个小 kernel）
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        四、优化二：计算图变换（减少冗余计算）
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="四、优化二：计算图变换（减少冗余计算）">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#41-rms-norm" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.1 折叠 RMS Norm 仿射参数
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#42" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.2 折叠动作时间编码器
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#43-qkv" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.3 QKV 投影融合
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#triton-kernel" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        五、优化三：Triton Kernel 深度优化
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="五、优化三：Triton Kernel 深度优化">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#51-gemm-tile" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.1 调优 GEMM Tile 参数
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#52-gated-ffn" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.2 Gated FFN 融合（最重要的单项优化）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#53-rms-norm-matmul-residual" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.3 RMS Norm + Matmul + Residual 融合
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#54-split-k-sm" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.4 部分 Split-k（处理 SM 分配不均问题）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#55" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.5 标量操作融合
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#roofline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        六、性能下界分析（Roofline 模型）
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="六、性能下界分析（Roofline 模型）">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#61-roofline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.1 Roofline 公式
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#62-2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.2 各模块理论下界（2 视图）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#63-1378-kernel" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.3 同步开销（1378 次 kernel 同步）
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#nsysrtx-3080" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        七、实测性能瓶颈分析（Nsys，RTX 3080）
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="七、实测性能瓶颈分析（Nsys，RTX 3080）">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#71-nsys" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.1 Nsys 分析方法
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#72-rtx-3080-745-ms" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.2 RTX 3080 实测数据（74.5 ms 推理分解）
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        八、进一步优化方向
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="八、进一步优化方向">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#81" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.1 量化（优先级最高）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#82-int4gptq" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.2 INT4/GPTQ 量化
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#83" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.3 优化方向优先级
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#full-streaming-inference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        九、全流式推理框架（Full Streaming Inference）
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="九、全流式推理框架（Full Streaming Inference）">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#91" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.1 并发执行收益
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#92" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.2 三层反馈回路
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        十、经验总结
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="十、经验总结">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#101" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10.1 收益递减规律
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Tensor%20Cores/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tensor Cores
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../%E6%96%87%E6%A1%A3%E9%98%85%E8%AF%BB%E6%95%B4%E7%90%86/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    文档阅读整理
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="目录">
+  
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      目录
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        一、问题背景与目标
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="一、问题背景与目标">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#11-vla" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.1 为什么 VLA 推理慢？
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#12" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.2 目标
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        二、优化总览与效果
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="二、优化总览与效果">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-rtx-40902" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1 逐步优化效果（RTX 4090，2 视图）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2 多视图对比（最终优化后）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#23-rtx-3080" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.3 我的 RTX 3080 实测
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cpu-cuda-graph" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        三、优化一：消除 CPU 开销（CUDA Graph）
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="三、优化一：消除 CPU 开销（CUDA Graph）">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#31" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.1 问题根因
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#32-cuda-graph" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.2 CUDA Graph 原理
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#33-pi0_inferpy1302" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.3 代码实现（pi0_infer.py:1302）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#34-torchcompile" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.4 与 torch.compile 的关系
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#35-cuda-graph-rtx-30801000-kernel" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.5 CUDA Graph 实测对比（RTX 3080，1000 个小 kernel）
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        四、优化二：计算图变换（减少冗余计算）
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="四、优化二：计算图变换（减少冗余计算）">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#41-rms-norm" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.1 折叠 RMS Norm 仿射参数
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#42" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.2 折叠动作时间编码器
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#43-qkv" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.3 QKV 投影融合
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#triton-kernel" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        五、优化三：Triton Kernel 深度优化
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="五、优化三：Triton Kernel 深度优化">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#51-gemm-tile" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.1 调优 GEMM Tile 参数
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#52-gated-ffn" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.2 Gated FFN 融合（最重要的单项优化）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#53-rms-norm-matmul-residual" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.3 RMS Norm + Matmul + Residual 融合
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#54-split-k-sm" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.4 部分 Split-k（处理 SM 分配不均问题）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#55" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.5 标量操作融合
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#roofline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        六、性能下界分析（Roofline 模型）
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="六、性能下界分析（Roofline 模型）">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#61-roofline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.1 Roofline 公式
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#62-2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.2 各模块理论下界（2 视图）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#63-1378-kernel" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.3 同步开销（1378 次 kernel 同步）
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#nsysrtx-3080" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        七、实测性能瓶颈分析（Nsys，RTX 3080）
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="七、实测性能瓶颈分析（Nsys，RTX 3080）">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#71-nsys" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.1 Nsys 分析方法
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#72-rtx-3080-745-ms" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.2 RTX 3080 实测数据（74.5 ms 推理分解）
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        八、进一步优化方向
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="八、进一步优化方向">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#81" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.1 量化（优先级最高）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#82-int4gptq" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.2 INT4/GPTQ 量化
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#83" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.3 优化方向优先级
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#full-streaming-inference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        九、全流式推理框架（Full Streaming Inference）
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="九、全流式推理框架（Full Streaming Inference）">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#91" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.1 并发执行收益
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#92" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.2 三层反馈回路
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        十、经验总结
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="十、经验总结">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#101" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10.1 收益递减规律
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+  <h1>System Optimization</h1>
+
+<blockquote>
+<p>基于论文 <em>Running VLAs at Real-time Speed</em>（arXiv:2510.26742）
+代码：https://github.com/Dexmal/realtime-vla
+</p>
+</blockquote>
+<hr />
+<h2 id="_1">一、问题背景与目标<a class="headerlink" href="#_1" title="Permanent link">&para;</a></h2>
+<h3 id="11-vla">1.1 为什么 VLA 推理慢？<a class="headerlink" href="#11-vla" title="Permanent link">&para;</a></h3>
+<p>π₀ 模型共有约 <strong>33 亿参数</strong>，由两部分组成：</p>
+<table>
+<thead>
+<tr>
+<th>模块</th>
+<th>基础模型</th>
+<th>参数量</th>
+<th>特性</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>VLM（视觉语言模型）</td>
+<td>PaliGemma（SigLIP + Gemma）</td>
+<td>~3B</td>
+<td>计算密集（compute-bound）</td>
+</tr>
+<tr>
+<td>AE（动作专家）</td>
+<td>精简版 Gemma</td>
+<td>~300M</td>
+<td>带宽密集（bandwidth-bound）</td>
+</tr>
+</tbody>
+</table>
+<p>朴素 PyTorch 推理需要 <strong>106.5 ms</strong>（2 视图），只能运行在约 9.4 Hz，远低于相机帧率 30 FPS 的要求。根本原因有三：</p>
+<ol>
+<li><strong>CPU overhead</strong>：每次推理要启动 &gt;1000 个 CUDA kernel，每次 kernel launch 约 5 μs，累积 ~5ms 的纯调度开销</li>
+<li><strong>冗余计算</strong>：计算图中存在大量可合并的线性操作，产生不必要的中间内存读写</li>
+<li><strong>kernel 效率低</strong>：默认 cuBLAS 配置未针对模型中特定的矩阵尺寸优化，Tile 分配不均</li>
+</ol>
+<h3 id="12">1.2 目标<a class="headerlink" href="#12" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>目标：&lt; 33ms（即 30 FPS，相机全帧处理）
+基线：106.5ms（naive PyTorch，2视图，RTX 4090）
+</code></pre></div>
+<p>33 ms 是关键阈值。哪怕达到 34 ms，在连续运行时也必须偶尔丢帧；若关键事件恰好发生在被丢掉的帧上，端到端延迟将增加整整一帧的时间。</p>
+<hr />
+<h2 id="_2">二、优化总览与效果<a class="headerlink" href="#_2" title="Permanent link">&para;</a></h2>
+<h3 id="21-rtx-40902">2.1 逐步优化效果（RTX 4090，2 视图）<a class="headerlink" href="#21-rtx-40902" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>Naive PyTorch:      106.5 ms   ← 出发点
++ CUDA Graph:        43.5 ms   ↓ 63.0 ms，单步最大收益，消除 CPU 调度开销
++ 计算图简化:        35.7 ms   ↓  7.8 ms，折叠冗余线性层，减少 kernel 数量
++ Triton 内核优化:   27.3 ms   ↓  8.4 ms，调优分块、融合标量操作
+─────────────────────────────
+理论下界（Roofline）: 20.6 ms  ← 距极限仅 30%，已接近最优
+</code></pre></div>
+<h3 id="22">2.2 多视图对比（最终优化后）<a class="headerlink" href="#22" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>方法</th>
+<th>1 视图</th>
+<th>2 视图</th>
+<th>3 视图</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Naive PyTorch</td>
+<td>105.0 ms</td>
+<td>106.5 ms</td>
+<td>113.9 ms</td>
+</tr>
+<tr>
+<td>openpi/jax（官方）</td>
+<td>43.8 ms</td>
+<td>53.7 ms</td>
+<td>67.6 ms</td>
+</tr>
+<tr>
+<td><strong>本文方法</strong></td>
+<td><strong>20.0 ms</strong></td>
+<td><strong>27.3 ms</strong></td>
+<td><strong>36.8 ms</strong></td>
+</tr>
+<tr>
+<td>理论下界</td>
+<td>13.7 ms</td>
+<td>20.6 ms</td>
+<td>27.6 ms</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>本文方法比官方 JAX 实现快约 <strong>2 倍</strong>，比 naive PyTorch 快约 <strong>4 倍</strong>。
+</p>
+</blockquote>
+<h3 id="23-rtx-3080">2.3 我的 RTX 3080 实测<a class="headerlink" href="#23-rtx-3080" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>RTX 3080：74.5 ms（约是 RTX 4090 的 2.73 倍）
+
+硬件差距原因：
+  CUDA Cores:  16384 (4090) vs 8704 (3080)
+  显存带宽:    1008 GB/s vs 760 GB/s
+  L2 Cache:    72 MB vs 5 MB  ← 差距最显著，直接影响矩阵权重缓存命中率
+</code></pre></div>
+<hr />
+<h2 id="cpu-cuda-graph">三、优化一：消除 CPU 开销（CUDA Graph）<a class="headerlink" href="#cpu-cuda-graph" title="Permanent link">&para;</a></h2>
+<h3 id="31">3.1 问题根因<a class="headerlink" href="#31" title="Permanent link">&para;</a></h3>
+<p>神经网络推理由 Python 逐一调用 CUDA kernel，每次 launch 约有 5 μs 的 CPU 端调度开销：</p>
+<div class="highlight"><pre><span></span><code>CPU 端流程：准备参数(1μs) → CUDA Driver 处理(2μs) → 提交 GPU 队列(1μs) ≈ 5μs/次
+1000 个 kernel × 5μs = 5 ms 纯 overhead（还不含 Python 解释器本身的开销）
+</code></pre></div>
+<p>CPU 与 GPU 之间存在流水线气泡：</p>
+<div class="highlight"><pre><span></span><code>不用 CUDA Graph：
+CPU: |L|↓|L|↓|L|↓|L|↓|...  ← 密集的 Launch 调用，有等待
+GPU:   █ █ █ █ █ █ █ █ ...  ← kernel 间有 gap
+
+使用 CUDA Graph：
+CPU: |GraphLaunch|__________  ← 只有一次 API 调用
+GPU:  ████████████████████   ← kernel 连续执行，无 gap
+</code></pre></div>
+<h3 id="32-cuda-graph">3.2 CUDA Graph 原理<a class="headerlink" href="#32-cuda-graph" title="Permanent link">&para;</a></h3>
+<p>CUDA Graph 分两个阶段：</p>
+<p><strong>录制阶段（只做一次）</strong>：将一次完整推理的所有 kernel 调用序列录制为一张"图"，记录拓扑关系和所有参数指针，但不实际执行计算。</p>
+<p><strong>回放阶段（每次推理）</strong>：一次 <code>cudaGraphLaunch</code> 调用，GPU 和驱动程序直接执行整张图，彻底绕过 Python 和 CUDA Driver 的逐 kernel 调度逻辑。</p>
+<p><strong>关键约束</strong>：所有 kernel 代码和缓冲区指针必须在每次运行时保持不变（即无动态 shape、无 if/while 分支）。π₀ 模型的 Transformer 结构满足此条件。</p>
+<h3 id="33-pi0_inferpy1302">3.3 代码实现（pi0_infer.py:1302）<a class="headerlink" href="#33-pi0_inferpy1302" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">Pi0Inference</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">weights</span><span class="p">,</span> <span class="n">num_views</span><span class="p">,</span> <span class="n">chunk_size</span><span class="p">):</span>
+        <span class="c1"># 1. 创建静态 buffer（地址固定，Graph 录制时绑定的就是这些地址）</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">buffers</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s1">&#39;observation_images&#39;</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span>
+                <span class="p">(</span><span class="n">num_views</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">224</span><span class="p">,</span> <span class="mi">224</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">bfloat16</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s1">&#39;cuda&#39;</span>
+            <span class="p">),</span>
+            <span class="s1">&#39;diffusion_noise&#39;</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span>
+                <span class="p">(</span><span class="n">chunk_size</span><span class="p">,</span> <span class="mi">32</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">bfloat16</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s1">&#39;cuda&#39;</span>
+            <span class="p">),</span>
+            <span class="s1">&#39;action_output&#39;</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span>
+                <span class="p">(</span><span class="n">chunk_size</span><span class="p">,</span> <span class="mi">32</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">bfloat16</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s1">&#39;cuda&#39;</span>
+            <span class="p">),</span>
+        <span class="p">}</span>
+
+        <span class="c1"># 2. 预热（CUDA Graph 录制前需要先运行一次，让 PyTorch 完成内存分配）</span>
+        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">):</span>
+            <span class="n">pi0_model</span><span class="p">(</span><span class="n">weights</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">buffers</span><span class="p">,</span> <span class="n">num_views</span><span class="p">)</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">synchronize</span><span class="p">()</span>
+
+        <span class="c1"># 3. 录制（只做一次）</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">infer_graph</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">CUDAGraph</span><span class="p">()</span>
+        <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">graph</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">infer_graph</span><span class="p">):</span>
+            <span class="n">pi0_model</span><span class="p">(</span><span class="n">weights</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">buffers</span><span class="p">,</span> <span class="n">num_views</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">images</span><span class="p">,</span> <span class="n">noise</span><span class="p">):</span>
+        <span class="c1"># 4. 每次推理：拷贝输入 → 回放 → 读取输出</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">buffers</span><span class="p">[</span><span class="s1">&#39;observation_images&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">copy_</span><span class="p">(</span><span class="n">images</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">buffers</span><span class="p">[</span><span class="s1">&#39;diffusion_noise&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">copy_</span><span class="p">(</span><span class="n">noise</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">infer_graph</span><span class="o">.</span><span class="n">replay</span><span class="p">()</span>          <span class="c1"># 零 CPU overhead</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">buffers</span><span class="p">[</span><span class="s1">&#39;action_output&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span>
+</code></pre></div>
+<h3 id="34-torchcompile">3.4 与 torch.compile 的关系<a class="headerlink" href="#34-torchcompile" title="Permanent link">&para;</a></h3>
+<p>代码中同时使用了 <code>@torch.compile</code>（pi0_infer.py:588, 819）：</p>
+<div class="highlight"><pre><span></span><code><span class="nd">@torch</span><span class="o">.</span><span class="n">compile</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">AttnMultiKey</span><span class="p">(</span><span class="n">QKV</span><span class="p">):</span> <span class="o">...</span>
+
+<span class="nd">@torch</span><span class="o">.</span><span class="n">compile</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">MultiAttention</span><span class="p">(</span><span class="n">query</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span> <span class="o">...</span>
+</code></pre></div>
+<p>两者的能力对比：</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th><code>torch.compile</code></th>
+<th>CUDA Graph</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>层级</td>
+<td>软件层（Python → CUDA）</td>
+<td>驱动层（CUDA API）</td>
+</tr>
+<tr>
+<td>做什么</td>
+<td>算子融合、代码生成</td>
+<td>消除 kernel 启动 overhead</td>
+</tr>
+<tr>
+<td>消除 Python overhead</td>
+<td>✅ 90%+</td>
+<td>✅ 95%+</td>
+</tr>
+<tr>
+<td>算子融合</td>
+<td>✅ 自动</td>
+<td>❌</td>
+</tr>
+<tr>
+<td>支持动态 shape</td>
+<td>✅</td>
+<td>❌</td>
+</tr>
+</tbody>
+</table>
+<p>两者在"消除 Python overhead"上有约 50% 的功能重叠。正因为代码中已有 <code>@torch.compile</code>，CUDA Graph 在 π₀ 模型上额外收益只有约 <strong>3%</strong>：</p>
+<div class="highlight"><pre><span></span><code>只用 torch.compile：  ~45 ms
+只用 CUDA Graph：     ~50-60 ms
+两者结合：            ~43.5 ms（额外收益仅 2 ms，收益递减）
+</code></pre></div>
+<p><strong>最佳实践</strong>：先用 <code>torch.compile</code> 优化算子，再加 CUDA Graph 消除剩余 overhead：</p>
+<div class="highlight"><pre><span></span><code><span class="nd">@torch</span><span class="o">.</span><span class="n">compile</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">model_forward</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">model</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+<span class="n">graph</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">CUDAGraph</span><span class="p">()</span>
+<span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">graph</span><span class="p">(</span><span class="n">graph</span><span class="p">):</span>
+    <span class="n">output</span> <span class="o">=</span> <span class="n">model_forward</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+<span class="c1"># 推理时</span>
+<span class="n">input_tensor</span><span class="o">.</span><span class="n">copy_</span><span class="p">(</span><span class="n">new_input</span><span class="p">)</span>
+<span class="n">graph</span><span class="o">.</span><span class="n">replay</span><span class="p">()</span>
+</code></pre></div>
+<h3 id="35-cuda-graph-rtx-30801000-kernel">3.5 CUDA Graph 实测对比（RTX 3080，1000 个小 kernel）<a class="headerlink" href="#35-cuda-graph-rtx-30801000-kernel" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>方式</th>
+<th>Launcher 总开销</th>
+<th>总耗时</th>
+<th>加速比</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>每次 sync</td>
+<td>3.09 ms</td>
+<td>11.98 ms</td>
+<td>baseline</td>
+</tr>
+<tr>
+<td>每 100 次 sync</td>
+<td>2.83 ms</td>
+<td>7.49 ms</td>
+<td>1.60x</td>
+</tr>
+<tr>
+<td><strong>CUDA Graph</strong></td>
+<td><strong>0.73 ms</strong></td>
+<td><strong>6.31 ms</strong></td>
+<td><strong>1.90x</strong></td>
+</tr>
+</tbody>
+</table>
+<p>CUDA Graph 消除了 <strong>76% 的 launcher 开销</strong>。</p>
+<blockquote>
+<p><strong>注意</strong>：π₀ 中 kernel 平均执行时间约 1300 μs（大 kernel），launcher 占比仅 0.4%，所以 CUDA Graph 对 π₀ 的实际收益远小于小 kernel 密集场景。π₀ 真正的瓶颈是 GPU 计算本身，而非 CPU 调度。
+</p>
+</blockquote>
+<hr />
+<h2 id="_3">四、优化二：计算图变换（减少冗余计算）<a class="headerlink" href="#_3" title="Permanent link">&para;</a></h2>
+<p>这一步通过等价变换消除冗余操作，类似编译器的"常量折叠"，节省约 <strong>7–8 ms</strong>。</p>
+<h3 id="41-rms-norm">4.1 折叠 RMS Norm 仿射参数<a class="headerlink" href="#41-rms-norm" title="Permanent link">&para;</a></h3>
+<p>RMS Norm 后紧接线性层，两者均为线性操作，可以利用结合律合并：</p>
+<div class="highlight"><pre><span></span><code>原始计算：
+  x_norm = x / rms(x) * gamma     ← RMS Norm（含仿射参数 gamma）
+  y = x_norm @ W + b               ← Linear
+
+等价变换后：
+  W_new = diag(gamma) @ W          ← 预先将 gamma 吸收进 W（只做一次）
+  y = (x / rms(x)) @ W_new + b    ← 推理时省去一次 element-wise 乘法 kernel
+</code></pre></div>
+<p><strong>收益</strong>：每层减少 1 次 element-wise 乘法 kernel，π₀ 共有 27+18 层，合计减少 45 次 kernel 调用。</p>
+<h3 id="42">4.2 折叠动作时间编码器<a class="headerlink" href="#42" title="Permanent link">&para;</a></h3>
+<p>AE 中的动作时间编码器原始结构：</p>
+<div class="highlight"><pre><span></span><code>原始：
+  action(32) → Linear(32→1024) → embed_a(1024) ─┐
+                                                  concat(2048) → Linear(2048→1024) → feature
+  time(1)   → Linear(1→1024)  → embed_t(1024) ─┘
+
+变换后（推理时）：
+  action(32) → Linear(32→1024, 直接合并两次线性) → feature + bias[time_step]
+  ↑ 因为 action 分支没有非线性，两次线性可直接折叠为一次
+  ↑ time 分支只有 10 种取值，预先打表，折叠为偏置向量 bias[0..9]
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="c1"># 预计算（初始化时）</span>
+<span class="n">time_bias_table</span> <span class="o">=</span> <span class="p">{}</span>
+<span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">10</span><span class="p">):</span>
+    <span class="n">time_embed</span> <span class="o">=</span> <span class="n">linear_time</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="n">t</span><span class="p">]))</span>         <span class="c1"># (1024,)</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">linear_combine</span><span class="p">(</span><span class="n">time_embed</span><span class="p">)</span>                  <span class="c1"># (1024,)</span>
+    <span class="n">time_bias_table</span><span class="p">[</span><span class="n">t</span><span class="p">]</span> <span class="o">=</span> <span class="n">result</span>  <span class="c1"># 存储为常量</span>
+
+<span class="c1"># 推理时（只需一次矩阵乘法 + 查表加偏置）</span>
+<span class="n">action_feature</span> <span class="o">=</span> <span class="n">linear_action_fused</span><span class="p">(</span><span class="n">action</span><span class="p">)</span>            <span class="c1"># 合并后的单次线性</span>
+<span class="n">output</span> <span class="o">=</span> <span class="n">action_feature</span> <span class="o">+</span> <span class="n">time_bias_table</span><span class="p">[</span><span class="n">current_step</span><span class="p">]</span> <span class="c1"># 查表，零计算</span>
+</code></pre></div>
+<p><strong>收益</strong>：动作分支 kernel 数从 2 减为 1；时间分支完全消除运行时计算，变为常量偏置加法。</p>
+<h3 id="43-qkv">4.3 QKV 投影融合<a class="headerlink" href="#43-qkv" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>原始：
+  Q = x @ W_Q    ← kernel 1
+  K = x @ W_K    ← kernel 2
+  V = x @ W_V    ← kernel 3
+
+融合后：
+  QKV = x @ [W_Q | W_K | W_V]   ← 单次大矩阵乘法
+  Q, K, V = QKV.split(...)       ← 内存切片，无额外计算
+</code></pre></div>
+<p><strong>收益</strong>：</p>
+<ul>
+<li>kernel 数从 3 减为 1，减少两次 GPU 调度同步</li>
+<li>单次大 GEMM 的硬件利用率高于三次小 GEMM（更好的 SM 占用率）</li>
+<li>可进一步将 RoPE 位置编码融合进矩阵乘法，并预计算 RoPE 权重</li>
+</ul>
+<hr />
+<h2 id="triton-kernel">五、优化三：Triton Kernel 深度优化<a class="headerlink" href="#triton-kernel" title="Permanent link">&para;</a></h2>
+<p>在消除"低垂的果实"之后，针对每个 GEMM 进行精细化调优，合计再节省约 <strong>8.4 ms</strong>。</p>
+<h3 id="51-gemm-tile">5.1 调优 GEMM Tile 参数<a class="headerlink" href="#51-gemm-tile" title="Permanent link">&para;</a></h3>
+<p>默认 cuBLAS 按矩阵维度分派预编译 kernel，部分尺寸配置并不最优。手动用 Triton 调优分块策略：</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># 以 AE 中高频执行的 GEMM（180次，64×1024×2560）为例</span>
+<span class="nd">@triton</span><span class="o">.</span><span class="n">jit</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">matmul_kernel</span><span class="p">(</span>
+    <span class="n">A</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span>
+    <span class="n">M</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">K</span><span class="p">,</span>
+    <span class="n">BLOCK_M</span><span class="p">:</span> <span class="n">tl</span><span class="o">.</span><span class="n">constexpr</span> <span class="o">=</span> <span class="mi">64</span><span class="p">,</span>   <span class="c1"># 调优后的最优 tile 尺寸</span>
+    <span class="n">BLOCK_N</span><span class="p">:</span> <span class="n">tl</span><span class="o">.</span><span class="n">constexpr</span> <span class="o">=</span> <span class="mi">32</span><span class="p">,</span>
+    <span class="n">BLOCK_K</span><span class="p">:</span> <span class="n">tl</span><span class="o">.</span><span class="n">constexpr</span> <span class="o">=</span> <span class="mi">64</span><span class="p">,</span>
+<span class="p">):</span>
+    <span class="c1"># Tile-based 矩阵乘法，充分利用 SRAM，减少 HBM 访问</span>
+    <span class="n">pid</span> <span class="o">=</span> <span class="n">tl</span><span class="o">.</span><span class="n">program_id</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+    <span class="o">...</span>
+</code></pre></div>
+<p>调优结果（部分关键 kernel）：</p>
+<table>
+<thead>
+<tr>
+<th>Shape</th>
+<th>执行次数</th>
+<th>cuBLAS 耗时</th>
+<th>Triton 耗时</th>
+<th>Tile 策略</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>512×2048×32768</td>
+<td>17</td>
+<td>7.359 ms</td>
+<td>7.317 ms</td>
+<td>fused gate</td>
+</tr>
+<tr>
+<td>64×1024×2560</td>
+<td>180</td>
+<td>1.718 ms</td>
+<td>1.479 ms</td>
+<td>64,32,64</td>
+</tr>
+<tr>
+<td>512×1152×4304</td>
+<td>27</td>
+<td>1.221 ms</td>
+<td>1.074 ms</td>
+<td>64,64,64</td>
+</tr>
+<tr>
+<td>512×4304×1152</td>
+<td>27</td>
+<td>1.190 ms</td>
+<td>1.143 ms</td>
+<td>64,64,64,4</td>
+</tr>
+</tbody>
+</table>
+<p>整体节省约 <strong>1.5 ms</strong>。</p>
+<blockquote>
+<p><strong>注意</strong>：LLM 的 transformer 只运行 17 次而非 18 次。这是因为只有 KV cache 会传给 AE，最后一层的 feature 不需要计算，额外节省约 0.7 ms。
+</p>
+</blockquote>
+<h3 id="52-gated-ffn">5.2 Gated FFN 融合（最重要的单项优化）<a class="headerlink" href="#52-gated-ffn" title="Permanent link">&para;</a></h3>
+<p>FFN 使用门控升维结构，原始需要 4 次 kernel 调用：</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># 原始（pi0_infer.py 改造前）：4 个 kernel，4 次 HBM 读写</span>
+<span class="n">gate</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">linear</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">w_gate</span><span class="p">)</span>        <span class="c1"># kernel 1：读 x, w_gate → 写 gate（HBM）</span>
+<span class="n">up</span>   <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">linear</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">w_up</span><span class="p">)</span>          <span class="c1"># kernel 2：读 x, w_up  → 写 up（HBM）</span>
+<span class="n">gate</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">gelu</span><span class="p">(</span><span class="n">gate</span><span class="p">)</span>                <span class="c1"># kernel 3：读 gate     → 写 gate（HBM）</span>
+<span class="n">out</span>  <span class="o">=</span> <span class="n">gate</span> <span class="o">*</span> <span class="n">up</span>                   <span class="c1"># kernel 4：读 gate, up → 写 out（HBM）</span>
+</code></pre></div>
+<p>融合后，一次 kernel 完成所有计算，中间结果留在寄存器/SRAM 中：</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># 融合后（pi0_infer.py:352）：1 个 Triton kernel，1 次 HBM 写</span>
+<span class="nd">@triton</span><span class="o">.</span><span class="n">jit</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">matmul_small_gate</span><span class="p">(</span><span class="n">inp</span><span class="p">,</span> <span class="n">w1</span><span class="p">,</span> <span class="n">w2</span><span class="p">,</span> <span class="n">out</span><span class="p">,</span>
+                      <span class="n">M</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">K</span><span class="p">,</span>
+                      <span class="n">BLOCK_M</span><span class="p">:</span> <span class="n">tl</span><span class="o">.</span><span class="n">constexpr</span><span class="p">,</span>
+                      <span class="n">BLOCK_N</span><span class="p">:</span> <span class="n">tl</span><span class="o">.</span><span class="n">constexpr</span><span class="p">,</span>
+                      <span class="n">BLOCK_K</span><span class="p">:</span> <span class="n">tl</span><span class="o">.</span><span class="n">constexpr</span><span class="p">):</span>
+    <span class="c1"># 加载同一块输入 tile</span>
+    <span class="n">a</span> <span class="o">=</span> <span class="n">tl</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">inp_ptr</span> <span class="o">+</span> <span class="o">...</span><span class="p">)</span>                 <span class="c1"># 读一次 inp</span>
+    <span class="c1"># 并行计算两个投影（共用同一输入 tile）</span>
+    <span class="n">acc1</span> <span class="o">=</span> <span class="n">tl</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">tl</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">w1_ptr</span> <span class="o">+</span> <span class="o">...</span><span class="p">))</span>   <span class="c1"># gate projection</span>
+    <span class="n">acc2</span> <span class="o">=</span> <span class="n">tl</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">tl</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">w2_ptr</span> <span class="o">+</span> <span class="o">...</span><span class="p">))</span>   <span class="c1"># up projection</span>
+    <span class="c1"># GELU（SiLU 近似）在寄存器中完成</span>
+    <span class="n">acc1</span> <span class="o">=</span> <span class="n">acc1</span> <span class="o">*</span> <span class="n">tl</span><span class="o">.</span><span class="n">sigmoid</span><span class="p">(</span><span class="mf">1.596</span> <span class="o">*</span> <span class="n">acc1</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="mf">0.045</span> <span class="o">*</span> <span class="n">acc1</span> <span class="o">*</span> <span class="n">acc1</span><span class="p">))</span>
+    <span class="c1"># 合并结果并写回（只写一次）</span>
+    <span class="n">output</span> <span class="o">=</span> <span class="p">(</span><span class="n">acc1</span> <span class="o">*</span> <span class="n">acc2</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">tl</span><span class="o">.</span><span class="n">bfloat16</span><span class="p">)</span>
+    <span class="n">tl</span><span class="o">.</span><span class="n">store</span><span class="p">(</span><span class="n">out_ptr</span> <span class="o">+</span> <span class="o">...</span><span class="p">,</span> <span class="n">output</span><span class="p">)</span>
+</code></pre></div>
+<p><strong>为什么有效</strong>：</p>
+<ul>
+<li>kernel 调用 4→1，节省 3 次 GPU 同步开销</li>
+<li>HBM 访问 4→1：中间张量（gate、up）不再落盘到显存，直接在寄存器/SRAM 中流转</li>
+<li>两个矩阵乘法共用同一输入 tile，输入只需加载一次</li>
+<li>写回时只写合并后的结果，内存带宽节省约 75%</li>
+</ul>
+<p><strong>实测占比</strong>：<code>matmul_small_gate</code> 在 RTX 3080 上占 GPU 时间的 <strong>28.6%</strong>，是第二大瓶颈。</p>
+<h3 id="53-rms-norm-matmul-residual">5.3 RMS Norm + Matmul + Residual 融合<a class="headerlink" href="#53-rms-norm-matmul-residual" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="c1"># 原始：4 步，4 次 HBM 读写</span>
+<span class="n">norm</span> <span class="o">=</span> <span class="n">rms_norm</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>           <span class="c1"># kernel 1</span>
+<span class="n">out</span>  <span class="o">=</span> <span class="n">matmul</span><span class="p">(</span><span class="n">norm</span><span class="p">,</span> <span class="n">w</span><span class="p">)</span>       <span class="c1"># kernel 2</span>
+<span class="n">out</span>  <span class="o">=</span> <span class="n">out</span> <span class="o">+</span> <span class="n">bias</span>            <span class="c1"># kernel 3</span>
+<span class="n">out</span>  <span class="o">=</span> <span class="n">out</span> <span class="o">+</span> <span class="n">residual</span>        <span class="c1"># kernel 4</span>
+
+<span class="c1"># 融合后（pi0_infer.py:1066）：1 个 kernel</span>
+<span class="nd">@triton</span><span class="o">.</span><span class="n">jit</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">matmul_small_bias_res</span><span class="p">(</span><span class="n">inp</span><span class="p">,</span> <span class="n">weight</span><span class="p">,</span> <span class="n">out</span><span class="p">,</span> <span class="n">bias</span><span class="p">,</span> <span class="n">residual</span><span class="p">,</span>
+                          <span class="n">rms_weight</span><span class="p">,</span> <span class="n">features</span><span class="p">,</span> <span class="o">...</span><span class="p">):</span>
+    <span class="c1"># RMS Norm 在寄存器中完成</span>
+    <span class="n">row</span> <span class="o">=</span> <span class="n">tl</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">inp</span> <span class="o">+</span> <span class="o">...</span><span class="p">)</span>
+    <span class="n">rms</span> <span class="o">=</span> <span class="n">tl</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">tl</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">row</span> <span class="o">*</span> <span class="n">row</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">/</span> <span class="n">features</span> <span class="o">+</span> <span class="mf">1e-6</span><span class="p">)</span>
+    <span class="n">inp_norm</span> <span class="o">=</span> <span class="n">row</span> <span class="o">/</span> <span class="n">rms</span>
+
+    <span class="c1"># 矩阵乘法</span>
+    <span class="n">acc</span> <span class="o">=</span> <span class="n">tl</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">inp_norm</span><span class="p">,</span> <span class="n">tl</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">weight</span> <span class="o">+</span> <span class="o">...</span><span class="p">))</span>
+
+    <span class="c1"># 偏置 + 残差直接加在寄存器中，一次写回</span>
+    <span class="n">output</span> <span class="o">=</span> <span class="n">acc</span> <span class="o">+</span> <span class="n">tl</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">bias</span> <span class="o">+</span> <span class="o">...</span><span class="p">)</span> <span class="o">+</span> <span class="n">tl</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">residual</span> <span class="o">+</span> <span class="o">...</span><span class="p">)</span>
+    <span class="n">tl</span><span class="o">.</span><span class="n">store</span><span class="p">(</span><span class="n">out</span> <span class="o">+</span> <span class="o">...</span><span class="p">,</span> <span class="n">output</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">tl</span><span class="o">.</span><span class="n">bfloat16</span><span class="p">))</span>
+</code></pre></div>
+<p><strong>实测占比</strong>：<code>matmul_small_res</code> 在 RTX 3080 上占 GPU 时间的 <strong>34.5%</strong>，是最大瓶颈。</p>
+<h3 id="54-split-k-sm">5.4 部分 Split-k（处理 SM 分配不均问题）<a class="headerlink" href="#54-split-k-sm" title="Permanent link">&para;</a></h3>
+<p>特殊 GEMM 尺寸 512×1152×1152 存在 SM 分配不均问题：</p>
+<div class="highlight"><pre><span></span><code>问题：
+  使用 64×64 tile → 生成 144 个 block
+  RTX 4090 有 128 个 SM
+  144 不是 128 的整数倍 → 部分 SM 要多跑一个 block，导致等待
+
+解决方案：拆分为两个可均匀分配的子 GEMM
+  子 GEMM 1：512×1152×1024（64×64 tile → 128 blocks，完美分配）
+  子 GEMM 2：512×1152×128 （32×32 tile + split-2 → 128 blocks，完美分配）
+  两者写入同一 kernel，并行执行（无数据依赖）
+</code></pre></div>
+<p>虽然此项收益不足 0.1 ms，但体现了针对具体硬件拓扑的精细调优思路。</p>
+<h3 id="55">5.5 标量操作融合<a class="headerlink" href="#55" title="Permanent link">&para;</a></h3>
+<p>所有 GEMM 后的标量操作（bias、residual、activation）均与前一 GEMM 融合：</p>
+<div class="highlight"><pre><span></span><code>bias + residual：合并进矩阵乘法 kernel，一次写回
+RMS Norm：先计算 token 级统计量存入独立 buffer，
+          在下一 GEMM 的累加阶段除以归一化因子，避免额外读写
+</code></pre></div>
+<p>此步骤减少总体内存占用，综合贡献约 <strong>4 ms</strong>。</p>
+<hr />
+<h2 id="roofline">六、性能下界分析（Roofline 模型）<a class="headerlink" href="#roofline" title="Permanent link">&para;</a></h2>
+<h3 id="61-roofline">6.1 Roofline 公式<a class="headerlink" href="#61-roofline" title="Permanent link">&para;</a></h3>
+<p>对于维度为 N×K×M 的 BF16 GEMM：</p>
+<p><span class="arithmatex"><span class="MathJax_Preview">t_{\text{roofline}} = \max\left(\frac{2KM}{T_{\text{bandwidth}}},\ \frac{NKM}{T_{\text{compute}}}\right)</span><script type="math/tex">t_{\text{roofline}} = \max\left(\frac{2KM}{T_{\text{bandwidth}}},\ \frac{NKM}{T_{\text{compute}}}\right)</script></span></p>
+<ul>
+<li>第一项：内存带宽限制（只考虑权重矩阵，激活可驻留 L2）</li>
+<li>第二项：算力限制</li>
+</ul>
+<p>RTX 4090 参数：带宽 1.01 TB/s，实际算力 91.4 TMAC/s（超频至 2.79 GHz）。</p>
+<h3 id="62-2">6.2 各模块理论下界（2 视图）<a class="headerlink" href="#62-2" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>模块</th>
+<th>理论下界</th>
+<th>实际耗时</th>
+<th>效率</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Vision Encoder</td>
+<td>2.485 ms</td>
+<td>4.059 ms</td>
+<td>61%</td>
+</tr>
+<tr>
+<td>LLM</td>
+<td>10.727 ms</td>
+<td>12.503 ms</td>
+<td>86%</td>
+</tr>
+<tr>
+<td>Action Expert</td>
+<td>6.486 ms</td>
+<td>11.001 ms</td>
+<td>59%</td>
+</tr>
+<tr>
+<td><strong>合计</strong></td>
+<td><strong>19.698 ms</strong></td>
+<td><strong>27.299 ms</strong></td>
+<td><strong>72%</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>规律</strong>：</p>
+<ul>
+<li>LLM 大多数操作是<strong>计算密集型</strong>（矩阵大，算力是瓶颈）→ 接近 Roofline</li>
+<li>Vision Encoder 和 AE 大多数操作是<strong>带宽密集型</strong>（小矩阵，HBM 读写是瓶颈）→ 优化空间更大</li>
+</ul>
+<h3 id="63-1378-kernel">6.3 同步开销（1378 次 kernel 同步）<a class="headerlink" href="#63-1378-kernel" title="Permanent link">&para;</a></h3>
+<p>π₀ 计算图共有 1378 个矩阵乘法操作：</p>
+<table>
+<thead>
+<tr>
+<th>同步方式</th>
+<th>同步时间</th>
+<th>额外开销</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>PyTorch 顺序 launch</td>
+<td>13.81 ms</td>
+<td>+12.92 ms</td>
+</tr>
+<tr>
+<td>CUDA Graph</td>
+<td>2.61 ms</td>
+<td>+1.72 ms</td>
+</tr>
+<tr>
+<td>软件屏障（software barrier）</td>
+<td>1.75 ms</td>
+<td>+0.86 ms</td>
+</tr>
+<tr>
+<td>完全融合（无同步基线）</td>
+<td>0.89 ms</td>
+<td>+0 ms</td>
+</tr>
+</tbody>
+</table>
+<p>软件屏障原理：启动数量等于 SM 数的线程块，用全局内存实现跨 block 同步：</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Triton 软件屏障示例</span>
+<span class="n">lock_goal</span> <span class="o">+=</span> <span class="n">psize</span>
+<span class="n">tl</span><span class="o">.</span><span class="n">atomic_add</span><span class="p">(</span><span class="n">lock_ptr</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>          <span class="c1"># 当前 block 完成</span>
+<span class="k">while</span> <span class="n">tl</span><span class="o">.</span><span class="n">atomic_or</span><span class="p">(</span><span class="n">lock_ptr</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">lock_goal</span><span class="p">:</span>
+    <span class="k">pass</span>                             <span class="c1"># 等待所有 block 完成</span>
+</code></pre></div>
+<p>实际使用时，软件屏障带来负收益（寄存器压力增加、代码体积变大），仅作为下界估算依据。</p>
+<p>加入同步开销后的最终下界（2 视图）：<strong>20.6 ms</strong>，实际 27.3 ms，距极限约 <strong>30%</strong>。</p>
+<hr />
+<h2 id="nsysrtx-3080">七、实测性能瓶颈分析（Nsys，RTX 3080）<a class="headerlink" href="#nsysrtx-3080" title="Permanent link">&para;</a></h2>
+<h3 id="71-nsys">7.1 Nsys 分析方法<a class="headerlink" href="#71-nsys" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="c1"># 运行 profiling</span>
+nsys<span class="w"> </span>profile<span class="w"> </span>--trace<span class="o">=</span>cuda,nvtx,osrt<span class="w"> </span>--output<span class="o">=</span>my_profile<span class="w"> </span>--stats<span class="o">=</span><span class="nb">true</span><span class="w"> </span><span class="se">\\</span>
+<span class="w">    </span>python3<span class="w"> </span>benchmark.py<span class="w"> </span>--model_version<span class="w"> </span>pi0<span class="w"> </span>--num_views<span class="w"> </span><span class="m">2</span><span class="w"> </span>--chunk_size<span class="w"> </span><span class="m">63</span>
+
+<span class="c1"># 查看 GPU kernel 时间（真正的计算耗时）</span>
+nsys<span class="w"> </span>stats<span class="w"> </span>my_profile.nsys-rep<span class="w"> </span>--report<span class="w"> </span>gpukernsum<span class="w"> </span><span class="p">|</span><span class="w"> </span>head<span class="w"> </span>-n<span class="w"> </span><span class="m">20</span>
+
+<span class="c1"># 查看 CPU API 调用开销</span>
+nsys<span class="w"> </span>stats<span class="w"> </span>my_profile.nsys-rep<span class="w"> </span>--report<span class="w"> </span>cuda_api_sum<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>Launch
+</code></pre></div>
+<blockquote>
+<p><strong>关键区分</strong>：</p>
+<ul>
+<li><code>CUDA API 行（CPU 端）</code>：主机调用 CUDA API 的时间，<code>cudaDeviceSynchronize</code> 通常占 95%+（正常！CPU 在等 GPU 完成）</li>
+<li><code>CUDA HW 行（GPU 端）</code>：kernel 在 GPU 上的实际计算时间，这才是真正瓶颈</li>
+</ul>
+</blockquote>
+<h3 id="72-rtx-3080-745-ms">7.2 RTX 3080 实测数据（74.5 ms 推理分解）<a class="headerlink" href="#72-rtx-3080-745-ms" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>GPU 计算（CUDA HW）：70 ms  94%  ← 真正瓶颈
+  matmul_small_res:       25 ms  34.5%  ← 最大单项（RMSNorm+Matmul+Residual）
+  matmul_small_gate:      20 ms  28.6%  ← 第二项（Gated FFN）
+  其他 kernels:           25 ms  31.9%
+
+CUDA API 开销（CPU 端）： 3 ms   4%
+  cudaGraphLaunch:        0.6 ms  0.8%
+  cudaLaunchKernel:       0.9 ms  1.1%
+  其他:                   1.5 ms  2.1%
+
+内存传输：&lt; 1 ms  &lt; 1%  （可忽略）
+</code></pre></div>
+<p><strong>结论</strong>：GPU 计算占 94%，继续优化 CPU/Graph 开销性价比极低。下一步应攻击 matmul kernel 本身，最有效手段是<strong>量化</strong>。</p>
+<hr />
+<h2 id="_4">八、进一步优化方向<a class="headerlink" href="#_4" title="Permanent link">&para;</a></h2>
+<h3 id="81">8.1 量化（优先级最高）<a class="headerlink" href="#81" title="Permanent link">&para;</a></h3>
+<p>GPU Tensor Core 各代支持的精度：</p>
+<table>
+<thead>
+<tr>
+<th>架构</th>
+<th>代表显卡</th>
+<th>支持精度</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Ampere</td>
+<td>RTX 3080</td>
+<td>FP16、BF16、INT8、TF32</td>
+</tr>
+<tr>
+<td>Ada</td>
+<td>RTX 4090</td>
+<td>FP16、BF16、INT8、TF32、<strong>FP8</strong></td>
+</tr>
+<tr>
+<td>Hopper</td>
+<td>H100</td>
+<td>FP16、BF16、INT8、TF32、<strong>FP8</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>INT8 量化（RTX 3080 首选）</strong>：</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># 使用 bitsandbytes 或 TensorRT INT8</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">bitsandbytes</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">bnb</span>
+
+<span class="c1"># 将线性层替换为 INT8</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">bnb</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Linear8bitLt</span><span class="p">(</span><span class="n">in_features</span><span class="p">,</span> <span class="n">out_features</span><span class="p">,</span> <span class="n">has_fp16_weights</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</code></pre></div>
+<ul>
+<li>矩阵计算速度是 FP16 的 2–4 倍（INT8 Tensor Core 原生支持）</li>
+<li>内存减半（FP16 → INT8 节省 50%），带宽压力同步降低</li>
+<li>预期收益：当前 matmul 占 GPU 时间 63%，INT8 速度约 2 倍 → <strong>节省约 20–25 ms，74 ms → ~50 ms</strong></li>
+</ul>
+<p><strong>FP8 量化（RTX 4090 / H100 可用）</strong>：</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># RTX 4090 / H100 支持 FP8 原生 Tensor Core</span>
+<span class="c1"># 优点：有指数位，精度损失比 INT8 小，无需精细校准</span>
+<span class="c1"># 注意：RTX 3080 无 FP8 Tensor Core，用 FP8 反而更慢（需转换为 FP16 再计算）</span>
+</code></pre></div>
+<h3 id="82-int4gptq">8.2 INT4/GPTQ 量化<a class="headerlink" href="#82-int4gptq" title="Permanent link">&para;</a></h3>
+<p>对于带宽密集型的 AE 部分（权重加载是瓶颈），更激进的 INT4 量化能进一步减少 HBM 读取量：</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># 使用 AutoGPTQ</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">auto_gptq</span><span class="w"> </span><span class="kn">import</span> <span class="n">AutoGPTQForCausalLM</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">AutoGPTQForCausalLM</span><span class="o">.</span><span class="n">from_quantized</span><span class="p">(</span><span class="n">model_path</span><span class="p">,</span> <span class="n">use_triton</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</code></pre></div>
+<h3 id="83">8.3 优化方向优先级<a class="headerlink" href="#83" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>优化</th>
+<th>预期收益</th>
+<th>适用硬件</th>
+<th>备注</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>INT8 量化</strong></td>
+<td>30–50%</td>
+<td>RTX 3080+</td>
+<td>最优先，直接攻击主瓶颈</td>
+</tr>
+<tr>
+<td><strong>流式推理（Full Streaming）</strong></td>
+<td>解锁 480 Hz</td>
+<td>所有</td>
+<td>VLM 与 AE 并行执行</td>
+</tr>
+<tr>
+<td><strong>FP8 量化</strong></td>
+<td>30–50%</td>
+<td>RTX 4090 / H100</td>
+<td>精度损失更小</td>
+</tr>
+<tr>
+<td><strong>知识蒸馏</strong></td>
+<td>15–30%</td>
+<td>所有</td>
+<td>减少模型参数量</td>
+</tr>
+<tr>
+<td><strong>FlashAttention-3</strong></td>
+<td>5–10%</td>
+<td>RTX 4090+</td>
+<td>当前 attention 仅占 3.3%</td>
+</tr>
+<tr>
+<td><strong>Tile 参数调优</strong></td>
+<td>3–7%</td>
+<td>所有</td>
+<td>适配自己的硬件</td>
+</tr>
+<tr>
+<td><strong>继续优化 CUDA Graph</strong></td>
+<td>1–3%</td>
+<td>所有</td>
+<td>已接近极限，性价比低</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="full-streaming-inference">九、全流式推理框架（Full Streaming Inference）<a class="headerlink" href="#full-streaming-inference" title="Permanent link">&para;</a></h2>
+<h3 id="91">9.1 并发执行收益<a class="headerlink" href="#91" title="Permanent link">&para;</a></h3>
+<p>AE（IO 密集）与 VLM（计算密集）在硬件层面互补，可并发执行：</p>
+<div class="highlight"><pre><span></span><code>顺序执行 VLM + 10 次 AE：27.3 ms
+并发执行 VLM + 10 次 AE：26.3 ms（-1 ms）
+并发执行 VLM + 16 次 AE：32.7 ms（触及 33 ms 边界）
+
+→ 每秒可支撑 30 次 VLM + 480 次 AE
+</code></pre></div>
+<h3 id="92">9.2 三层反馈回路<a class="headerlink" href="#92" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>480 Hz ← Action Expert（IO 密集）  处理力传感器，&lt;2 ms 延迟
+ 30 Hz ← Vision Encoder + LLM      处理图像，&lt;33 ms 延迟
+  1 Hz ← LLM 文本生成（搭载帧编码）  任务规划，30 token/s
+</code></pre></div>
+<p><strong>高频控制信号来源</strong>：力传感器（&gt;2 KHz）、电机电流（&gt;1 KHz）、电阻式触觉传感器。</p>
+<p><strong>关键设计</strong>：AE 通过渐进式流匹配（类自回归解码）生成动作——每一步 AE 只生成部分动作序列，而非等待全部 10 步去噪完成后再输出。新传感器数据通过独立 CUDA stream 的 memcpy 注入，不打断主推理流程。</p>
+<hr />
+<h2 id="_5">十、经验总结<a class="headerlink" href="#_5" title="Permanent link">&para;</a></h2>
+<h3 id="101">10.1 收益递减规律<a class="headerlink" href="#101" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>Naive PyTorch:   106.5 ms
++ Triton:         ~80 ms   ← 第一步，收益最大（直接换更好的 kernel）
++ torch.compile:  ~45 ms   ← 第二步
++ CUDA Graph:     43.5 ms  ← 第三步，收益递减（已有 compile 时仅 3%）
++ 计算图简化:     35.7 ms
++ Kernel 调优:    27.3 ms
+
+后续每一步都建立在前一步基础上，越往后优化越难
+</code></pre></div>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  回到页面顶部
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+    <a href="https://github.com/xiaozhenxu/" target="_blank" rel="noopener" title="GitHub" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.top", "search.highlight"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "\u5df2\u590d\u5236", "clipboard.copy": "\u590d\u5236", "search.result.more.one": "\u5728\u8be5\u9875\u4e0a\u8fd8\u6709 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.more.other": "\u5728\u8be5\u9875\u4e0a\u8fd8\u6709 # \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.none": "\u6ca1\u6709\u627e\u5230\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.one": "\u627e\u5230 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.other": "# \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.placeholder": "\u952e\u5165\u4ee5\u5f00\u59cb\u641c\u7d22", "search.result.term.missing": "\u7f3a\u5c11", "select.version": "\u9009\u62e9\u5f53\u524d\u7248\u672c"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML"></script>
+      
+    
+  </body>
+</html>
