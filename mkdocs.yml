@@ -1,4 +1,4 @@
-site_name: xiaozhenxu's Blog
+site_name: xiaozhenxu
 site_author: xiaozhenxu
 site_url: https://xiaozhenxu.github.io/blog
 repo_url: https://github.com/xiaozhenxu/blog/
@@ -18,19 +18,27 @@ nav:
 
 theme:
   name: material
+  custom_dir: overrides
+  font: false
+  icon:
+    logo: material/code-tags
   language: zh  # 设置为中文界面
   palette:
     - media: "(prefers-color-scheme: light)"
       scheme: default
       toggle:
         icon: material/brightness-7
-        name: 浅色模式
+        name: 切换到深色模式
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
       toggle:
         icon: material/brightness-4
-        name: 深色模式
+        name: 切换到浅色模式
   features:
+    - content.code.copy
+    - navigation.sections
+    - navigation.footer
+    - toc.follow
     - navigation.tabs
     - navigation.top  # 返回顶部按钮
     - search.highlight  # 搜索高亮
@@ -44,6 +52,8 @@ plugins:
 
 # Markdown扩展
 markdown_extensions:
+  - attr_list
+  - md_in_html
   - admonition  # 支持提示框（如“注意”、“警告”）
   - pymdownx.superfences  # 更好的代码块
   - pymdownx.tasklist  # 任务列表
@@ -54,10 +64,15 @@ markdown_extensions:
 extra:
   homepage: /blog/
   social:
-    - icon: /fontawesome/brands/github
+    - icon: fontawesome/brands/github
       link: https://github.com/xiaozhenxu/
       name: GitHub
 
 # math 渲染所需的 JS（使用 MathJax）
 extra_javascript:
   - https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML
+
+extra_css:
+  - assets/stylesheets/custom.css
+
+copyright: xiaozhenxu · 技术笔记

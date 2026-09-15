@@ -1,6 +1,6 @@
 # Flash Attention
 
-# 1. 背景
+## 1. 背景
 
 在 Transformer 结构当中，标准的 attention 计算公式如下
 
@@ -27,9 +27,9 @@ def attention(query: Tensor, key: Tensor, value: Tensor):
 
 在大模型推理长序列场景下，传统实现会显式构造/存储 $*QK^T*$ 和 $softmax$ 权重矩阵，他们的显存占用将会达到 $*O(n^2))$，*并且对于这部分显存读取将导致带宽瓶颈。
 
-# 2. Flash Attention 算法
+## 2. Flash Attention 算法
 
-## 2.1 算法实现原理
+### 2.1 算法实现原理
 
 本文不涉及 safe softmax 和 online softmax 等数学公式推导，而专注于算法原理和算法实现。
 
@@ -55,7 +55,7 @@ Flash Attention 的算法原理可以概括为：
 | block key | [SeqLength_KV, DIM] |
 | block value | [SeqLength_KV, DIM] |
 
-## 2.2 Python 伪代码实现
+### 2.2 Python 伪代码实现
 
 下面的 Python 伪代码实现了 Flash Attention 2 论文中描述的算法。每个线程块（block）负责处理 Q 的一个分块（这里指的是在 seqlen 维度上分块），并且会遍历整个 K V。
 
@@ -187,7 +187,7 @@ $$
 
 1. 在所有轮数迭代完成之后，用最终的分子分母得到结果
 
-# 3. Version 1 - 基础实现
+## 3. Version 1 - 基础实现
 
 通常 MMA 的实现遵循下面的步骤
 
@@ -195,7 +195,7 @@ $$
 2. 使用 `ldmatrix` 从 shared memory 加载到寄存器文件
 3. 调用 `mma.m16n8k16` 实现 BF16 的矩阵乘加操作
 
-## 3.1 Global to Shared memory data transfer
+### 3.1 Global to Shared memory data transfer
 
 ```cpp
 #include <cuda_bf16.h>
@@ -243,7 +243,7 @@ asm volatile("cp.async.wait_all");
 __syncthreads();
 ```
 
-## **3.2 Shared memory to Register memory data transfer**
+### **3.2 Shared memory to Register memory data transfer**
 
 在实现全局内存向共享内存的数据迁移的时候，我们从一个 thread block 和每个 cuda thread 的角度来考虑分块。但是，在做共享内存向寄存器文件的数据迁移的时候，因为寄存器数据后续服务于 MMA 指令，这使得我们以 warp 为单位来考虑数据切块。
 
@@ -303,7 +303,7 @@ __syncthreads();
 
 ![ldmatrix.x4 中各组 Lane 的行列偏移与分块位置](images/ldmatrix-x4-lane-offsets.png)
 
-### Online softmax - CUDA C++
+#### Online softmax - CUDA C++
 
 **Row max**
 
@@ -357,9 +357,9 @@ rowmax[mma_id_q][0] = this_rowmax[0];
 rowmax[mma_id_q][1] = this_rowmax[1];
 ```
 
-## Version 2 - XOR Swizzling
+### Version 2 - XOR Swizzling
 
-### Profiling
+#### Profiling
 
 ![Warp 状态分析中的流水线、记分板与屏障等待分布](images/warp-state-profile.png)
 
@@ -369,7 +369,7 @@ rowmax[mma_id_q][1] = this_rowmax[1];
 - **Stall Short Scoreboard 等待从共享内存或者 L1 Cache 上读取数据**
 - **Stall Long Scoreboard  等待从全局内存中读取数据**
 
-### Swizzle
+#### Swizzle
 
 通过改变数据在 Shared Memory 中的物理存储地址（而不改变逻辑上的行列关系），来避免 Bank Conflict（如果一个 Warp 中的多个线程同时访问同一个 Bank 的不同地址，访问就会串行化，导致性能下降）。
 
@@ -407,7 +407,7 @@ STRIDE 表示每一行的字节数量。
 
 </aside>
 
-# FQA
+## FQA
 
 1. FlashAttention 主要是解决了什么问题？
     - 将原本的 3 个算子融合为 1 个算子，原本需要 6 次针对 HBM 内存的读取写入操作，而现在只需要 2 次，减少访存耗时，增加了计算强度(即每个读入数据的计算步骤增多了)

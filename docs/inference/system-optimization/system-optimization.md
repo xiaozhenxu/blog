@@ -1,3 +1,5 @@
+# 模型推理优化：以 π₀ 为例
+
 > 基于论文 *Running VLAs at Real-time Speed*（arXiv:2510.26742）
 代码：https://github.com/Dexmal/realtime-vla
 > 

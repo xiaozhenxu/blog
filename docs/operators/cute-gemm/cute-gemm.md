@@ -1,8 +1,8 @@
 # CUTLASS: GEMM Kernel by CUTE
 
-# 1. CuTe 基础组件
+## 1. CuTe 基础组件
 
-## 1.1 Tensor 和 Layout
+### 1.1 Tensor 和 Layout
 
 Tensor 中的张量在内存的存储结构就是一种 Layout，它包括了 Shape 和 Stride 两个部分。CuTe 中的张量可以通过下面的方式来创建
 
@@ -12,7 +12,7 @@ Tensor mA = make_tensor(make_gemm_ptr(Aptr),
 												make_stride(Int<1>{}, Int<3>{}));
 ```
 
-## 1.2 Tiling API
+### 1.2 Tiling API
 
 在大规模的矩阵运算中，需要将矩阵进行分块处理，也就是 tiling。在 CuTe 中，我们可以直接使用 `local_tile` 来实现对 Tensor 的分块。
 
@@ -58,7 +58,7 @@ Tensor gA = local_tile(mA, tiler, coord, Step<_1, X, _1>{});
 > Note: `make_tile` 和 `make_coord`，包括上面的 `make_shape` 和 `make_stride`，最终返回的都是一个 `cute::tuple` 类型的值，而 `Tile`、`Coord`、`Shape`、`Stride`、`Step` 类都是 `cute::tuple` 的别名，因此可以用相同的方法使用它们。
 > 
 
-## 1.3 MMA API
+### 1.3 MMA API
 
 CuTe 中的 `MMA_Atom` 对象对应一个特定的 mma 指令，例如我们需要完成的 $16 \times 16 \times 8$ 的 MMA 运算，且所有的数值精度均为 FP16，那么首先需要创建一个 `MMA_op`
 
@@ -109,7 +109,7 @@ Tensor tCgA = thr_mma.partition_A(gA);  // (MMA, MMA_M, MMA_K)
 Tensor tCrA = thr_mma.partition_fragment_A(gA);  // (MMA, MMA_M, MMA_K)
 ```
 
-## 1.4 Copy API 与 GEMM API
+### 1.4 Copy API 与 GEMM API
 
 <aside>
 💡
@@ -137,9 +137,9 @@ gemm(tiled_mma, tCrD, tCrA, tCrB, tCrC);
 copy(copy_atom, tCrD, tCgD);
 ```
 
-# 2. Minimal GEMM Kernel
+## 2. Minimal GEMM Kernel
 
-## 2.1 代码实现
+### 2.1 代码实现
 
 本节中需要解决的问题比较简单，因此代码实现也是非常简单。从下面的表格可以看出，我们使用 mma 指令 `mma.sync.aligned.m16n8k8.row.col.f16.f16.f16.f16` ，并且需要我们计算的矩阵规模也是 $16 \times 16 \times 8$ ，因此不需要 tiling。
 
@@ -154,15 +154,15 @@ copy(copy_atom, tCrD, tCgD);
 
 具体的代码实现位于[这里](https://github.com/xiaozhenxu/cuda-learning/blob/main/cute/00_simple_gemm/simple_gemm.cu)。
 
-## 2.2 性能分析
+### 2.2 性能分析
 
 TODO
 
-# 3. 混合精度 GEMM Kernel
+## 3. 混合精度 GEMM Kernel
 
 TODO
 
-# 4. CUTE 下的三级 Tiling 模型
+## 4. CUTE 下的三级 Tiling 模型
 
 在 2.1 的表格中已经提到过，CUTE 在实现 GEMM 的时候，进行了三级 Tiling，包括 MMA Atom shape、Tiled MMA shape 和 Block Tile shape。
 
@@ -172,13 +172,13 @@ TODO
 
 ![GEMM 从 Global、Block、Tiled MMA 到 MMA Atom 的分块层级](images/gemm-tiling-hierarchy.png)
 
-## 4.1 Tiled MMA
+### 4.1 Tiled MMA
 
 在本小节中，我们将首先扩展 MMA Atom 来获得更大尺寸的 Tiled MMA，而这一步骤可以通过函数 `make_tiled_mma` 实现。
 
 如上所述，Tiled MMA 是由 MMA Atom 在 MNK 维度改变 **排布方式** 和 **执行次数** 得到的。排布方式的改变其实就是增加\/减少 warp 数量，也就是增加\/并发数量，而执行次数的改变其实就是增加\/减少单个 warp 执行 MMA Atom 的次数，也就是增加\/串行执行数量。
 
-### make_tiled_mma API
+#### make_tiled_mma API
 
 在 1.2 小节中，实现了一个很简单的矩阵乘法，这个矩阵 shape 和 MMA Atom shape 是一样的，因此 `make_tiled_mma` 的使用非常简单，表示获得的 Tiled MMA shape 和 MMA Atom shape 是一样的
 
@@ -194,7 +194,7 @@ using TiledMMA = decltype(make_tiled_mma(MMA_op{}));
 - `MMAThrLayout` cute当中的 `layout` 对象，规定了在 m n k 方向原子块(Atom)的堆叠数量，通过这个可以计算得到处理该 tile 的线程总数量
 - `MMATileLayout` cute当中的 `layout` 对象，表明了待处理 tile 在 m n k 方向上的 shape
 
-### 代码实现
+#### 代码实现
 
 相比于 Minimal GEMM Kernel，本小节主要是扩展 Tiled MMA shape，当然也扩展待处理矩阵的大小，但是保持了 Block Tile shape 和 Tiled MMA shape 是一致的。
 
@@ -238,7 +238,7 @@ using TiledMMA = decltype(make_tiled_mma(MMA_op{}, MMAThrLayout{}, MMATileLayout
 
 完整的代码在[这里](https://github.com/xiaozhenxu/cuda-learning/blob/main/cute/02_tiled_mma/tiled_mma.cu)
 
-## 1.3 MMA API
+### 1.3 MMA API
 
 `MMA_Atom` 代表了硬件（通常是 Tensor Core）能够执行的最小、不可分割的矩阵乘法操作单元。 `MMA_Atom` 是用来描述 `mma.sync` 指令的软件对象，它封装了：
 
