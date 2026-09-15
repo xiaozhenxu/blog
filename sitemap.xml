@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+    <url>
+         <loc>https://xiaozhenxu.github.io/blog/</loc>
+         <lastmod>2026-09-15</lastmod>
+    </url>
+    <url>
+         <loc>https://xiaozhenxu.github.io/blog/fundamentals/gpu-data-transfer/gpu-data-transfer/</loc>
+         <lastmod>2026-09-15</lastmod>
+    </url>
+    <url>
+         <loc>https://xiaozhenxu.github.io/blog/fundamentals/tensor-cores/tensor-cores/</loc>
+         <lastmod>2026-09-15</lastmod>
+    </url>
+    <url>
+         <loc>https://xiaozhenxu.github.io/blog/inference/system-optimization/system-optimization/</loc>
+         <lastmod>2026-09-15</lastmod>
+    </url>
+    <url>
+         <loc>https://xiaozhenxu.github.io/blog/operators/cute-gemm/cute-gemm/</loc>
+         <lastmod>2026-09-15</lastmod>
+    </url>
+    <url>
+         <loc>https://xiaozhenxu.github.io/blog/operators/flash-attention/flash-attention/</loc>
+         <lastmod>2026-09-15</lastmod>
+    </url>
+</urlset>
