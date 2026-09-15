@@ -8,7 +8,7 @@ repo_name: Blog GitHub
 nav:
   - 首页: index.md
   - 推理优化:
-      - 模型推理优化：以 π₀ 为例: inference/system-optimization/system-optimization.md
+      - 模型推理优化：以 pi05 为例: inference/system-optimization/system-optimization.md
   - 核心算子:
       - Flash Attention: operators/flash-attention/flash-attention.md
       - CuTe GEMM: operators/cute-gemm/cute-gemm.md
@@ -24,13 +24,11 @@ theme:
     logo: material/code-tags
   language: zh  # 设置为中文界面
   palette:
-    - media: "(prefers-color-scheme: light)"
-      scheme: default
+    - scheme: default
       toggle:
         icon: material/brightness-7
         name: 切换到深色模式
-    - media: "(prefers-color-scheme: dark)"
-      scheme: slate
+    - scheme: slate
       toggle:
         icon: material/brightness-4
         name: 切换到浅色模式

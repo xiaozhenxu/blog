@@ -1,7 +1,9 @@
-# 模型推理优化：以 π₀ 为例
+# 模型推理优化：以 pi05 为例
 
 > 基于论文 *Running VLAs at Real-time Speed*（arXiv:2510.26742）
 代码：https://github.com/Dexmal/realtime-vla
+>
+> 本文实验模型为 `pi05`，对应入口为 `pi05_infer.py`。下文代码片段用于说明优化思路，具体实现以仓库源码为准。
 > 
 
 ---
@@ -10,7 +12,7 @@
 
 ### 1.1 为什么 VLA 推理慢？
 
-π₀ 模型共有约 **33 亿参数**，由两部分组成：
+pi05 模型共有约 **33 亿参数**，由两部分组成：
 
 | 模块 | 基础模型 | 参数量 | 特性 |
 | --- | --- | --- | --- |
@@ -103,12 +105,12 @@ CUDA Graph 分两个阶段：
 
 **回放阶段（每次推理）**：一次 `cudaGraphLaunch` 调用，GPU 和驱动程序直接执行整张图，彻底绕过 Python 和 CUDA Driver 的逐 kernel 调度逻辑。
 
-**关键约束**：所有 kernel 代码和缓冲区指针必须在每次运行时保持不变（即无动态 shape、无 if/while 分支）。π₀ 模型的 Transformer 结构满足此条件。
+**关键约束**：所有 kernel 代码和缓冲区指针必须在每次运行时保持不变（即无动态 shape、无 if/while 分支）。pi05 模型的 Transformer 结构满足此条件。
 
-### 3.3 代码实现（pi0_infer.py:1302）
+### 3.3 代码实现示意
 
 ```python
-class Pi0Inference:
+class Pi05Inference:
     def __init__(self, weights, num_views, chunk_size):
         # 1. 创建静态 buffer（地址固定，Graph 录制时绑定的就是这些地址）
         self.buffers = {
@@ -125,13 +127,13 @@ class Pi0Inference:
 
         # 2. 预热（CUDA Graph 录制前需要先运行一次，让 PyTorch 完成内存分配）
         for _ in range(3):
-            pi0_model(weights, self.buffers, num_views)
+            pi05_model(weights, self.buffers, num_views)
         torch.cuda.synchronize()
 
         # 3. 录制（只做一次）
         self.infer_graph = torch.cuda.CUDAGraph()
         with torch.cuda.graph(self.infer_graph):
-            pi0_model(weights, self.buffers, num_views)
+            pi05_model(weights, self.buffers, num_views)
 
     def forward(self, images, noise):
         # 4. 每次推理：拷贝输入 → 回放 → 读取输出
@@ -143,7 +145,7 @@ class Pi0Inference:
 
 ### 3.4 与 torch.compile 的关系
 
-代码中同时使用了 `@torch.compile`（pi0_infer.py:588, 819）：
+`torch.compile` 的配合使用可示意如下：
 
 ```python
 @torch.compile
@@ -163,7 +165,7 @@ def MultiAttention(query, key, value): ...
 | 算子融合 | ✅ 自动 | ❌ |
 | 支持动态 shape | ✅ | ❌ |
 
-两者在"消除 Python overhead"上有约 50% 的功能重叠。正因为代码中已有 `@torch.compile`，CUDA Graph 在 π₀ 模型上额外收益只有约 **3%**：
+两者在"消除 Python overhead"上有约 50% 的功能重叠。正因为代码中已有 `@torch.compile`，CUDA Graph 在 pi05 模型上额外收益只有约 **3%**：
 
 ```
 只用 torch.compile：  ~45 ms
@@ -197,7 +199,7 @@ graph.replay()
 
 CUDA Graph 消除了 **76% 的 launcher 开销**。
 
-> **注意**：π₀ 中 kernel 平均执行时间约 1300 μs（大 kernel），launcher 占比仅 0.4%，所以 CUDA Graph 对 π₀ 的实际收益远小于小 kernel 密集场景。π₀ 真正的瓶颈是 GPU 计算本身，而非 CPU 调度。
+> **注意**：pi05 中 kernel 平均执行时间约 1300 μs（大 kernel），launcher 占比仅 0.4%，所以 CUDA Graph 对 pi05 的实际收益远小于小 kernel 密集场景。pi05 真正的瓶颈是 GPU 计算本身，而非 CPU 调度。
 > 
 
 ---
@@ -220,7 +222,7 @@ RMS Norm 后紧接线性层，两者均为线性操作，可以利用结合律�
   y = (x / rms(x)) @ W_new + b    ← 推理时省去一次 element-wise 乘法 kernel
 ```
 
-**收益**：每层减少 1 次 element-wise 乘法 kernel，π₀ 共有 27+18 层，合计减少 45 次 kernel 调用。
+**收益**：每层减少 1 次 element-wise 乘法 kernel，pi05 共有 27+18 层，合计减少 45 次 kernel 调用。
 
 ### 4.2 折叠动作时间编码器
 
@@ -316,7 +318,7 @@ def matmul_kernel(
 FFN 使用门控升维结构，原始需要 4 次 kernel 调用：
 
 ```python
-# 原始（pi0_infer.py 改造前）：4 个 kernel，4 次 HBM 读写
+# 优化前示意：4 个 kernel，4 次 HBM 读写
 gate = F.linear(x, w_gate)        # kernel 1：读 x, w_gate → 写 gate（HBM）
 up   = F.linear(x, w_up)          # kernel 2：读 x, w_up  → 写 up（HBM）
 gate = F.gelu(gate)                # kernel 3：读 gate     → 写 gate（HBM）
@@ -326,7 +328,7 @@ out  = gate * up                   # kernel 4：读 gate, up → 写 out（HBM�
 融合后，一次 kernel 完成所有计算，中间结果留在寄存器/SRAM 中：
 
 ```python
-# 融合后（pi0_infer.py:352）：1 个 Triton kernel，1 次 HBM 写
+# 融合后示意：1 个 Triton kernel，1 次 HBM 写
 @triton.jit
 def matmul_small_gate(inp, w1, w2, out,
                       M, N, K,
@@ -363,7 +365,7 @@ out  = matmul(norm, w)       # kernel 2
 out  = out + bias            # kernel 3
 out  = out + residual        # kernel 4
 
-# 融合后（pi0_infer.py:1066）：1 个 kernel
+# 融合后示意：1 个 kernel
 @triton.jit
 def matmul_small_bias_res(inp, weight, out, bias, residual,
                           rms_weight, features, ...):
@@ -443,7 +445,7 @@ RTX 4090 参数：带宽 1.01 TB/s，实际算力 91.4 TMAC/s（超频至 2.79 G
 
 ### 6.3 同步开销（1378 次 kernel 同步）
 
-π₀ 计算图共有 1378 个矩阵乘法操作：
+pi05 计算图共有 1378 个矩阵乘法操作：
 
 | 同步方式 | 同步时间 | 额外开销 |
 | --- | --- | --- |
@@ -475,7 +477,7 @@ while tl.atomic_or(lock_ptr, 0) < lock_goal:
 ```bash
 # 运行 profiling
 nsys profile --trace=cuda,nvtx,osrt --output=my_profile --stats=true \\
-    python3 benchmark.py --model_version pi0 --num_views 2 --chunk_size 63
+    python3 benchmark.py --model_version pi05 --num_views 2 --chunk_size 63
 
 # 查看 GPU kernel 时间（真正的计算耗时）
 nsys stats my_profile.nsys-rep --report gpukernsum | head -n 20

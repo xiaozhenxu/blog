@@ -79,7 +79,7 @@ Layout、Tiling 与矩阵乘法实现中的细节。
 </div>
 <div class="archive" markdown="1">
 
-- [模型推理优化：以 π₀ 为例](inference/system-optimization/system-optimization.md) <span>推理优化</span>
+- [模型推理优化：以 pi05 为例](inference/system-optimization/system-optimization.md) <span>推理优化</span>
 - [Flash Attention](operators/flash-attention/flash-attention.md) <span>核心算子</span>
 - [CuTe GEMM](operators/cute-gemm/cute-gemm.md) <span>核心算子</span>
 - [Tensor Cores](fundamentals/tensor-cores/tensor-cores.md) <span>计算基础</span>
