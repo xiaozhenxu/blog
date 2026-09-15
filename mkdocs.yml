@@ -4,6 +4,18 @@ site_url: https://xiaozhenxu.github.io/blog
 repo_url: https://github.com/xiaozhenxu/blog/
 repo_name: Blog GitHub
 
+# 导航与本地目录对应：推理优化、核心算子、计算基础。
+nav:
+  - 首页: index.md
+  - 推理优化:
+      - 模型推理优化：以 π₀ 为例: inference/system-optimization/system-optimization.md
+  - 核心算子:
+      - Flash Attention: operators/flash-attention/flash-attention.md
+      - CuTe GEMM: operators/cute-gemm/cute-gemm.md
+  - 计算基础:
+      - Tensor Cores: fundamentals/tensor-cores/tensor-cores.md
+      - 数据搬运：LDG、cp.async 与 TMA: fundamentals/gpu-data-transfer/gpu-data-transfer.md
+
 theme:
   name: material
   language: zh  # 设置为中文界面
@@ -40,7 +52,7 @@ markdown_extensions:
       permalink: true
 
 extra:
-  homepage: /
+  homepage: /blog/
   social:
     - icon: /fontawesome/brands/github
       link: https://github.com/xiaozhenxu/

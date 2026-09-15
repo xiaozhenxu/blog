@@ -39,7 +39,7 @@ Flash Attention 的算法原理可以概括为：
 - online softmax：对 query 每行维护3个累积量：当前最大值 $m$、归一化分母 $\ell = \sum e^{s-m}$ 、加权和值 $a = \sum e^{s-m} V$。每处理一个新块就更新 $m$  $\ell$  $a$，最后输出为 $O = a/\ell$ 。因此不需要保存整行/整块的注意力权重。
 - 算子融合与低访存：在一个 fused kernel 中把 三个计算步骤 串起来做，尽量只在片上存储中间量，减少对显存的读写，从而显著提速并降低显存占用。
 
-![image.png](images/Flash%20Attention/image.png)
+![Flash Attention 中 Q、K、V 的分块计算流程](images/blockwise-attention-flow.png)
 
 从图中可以看出，Flash Attention 的计算是分步迭代的，这里对 *Q*,*K*,*V*  矩阵的 shape 定义如下：
 
@@ -247,7 +247,7 @@ __syncthreads();
 
 在实现全局内存向共享内存的数据迁移的时候，我们从一个 thread block 和每个 cuda thread 的角度来考虑分块。但是，在做共享内存向寄存器文件的数据迁移的时候，因为寄存器数据后续服务于 MMA 指令，这使得我们以 warp 为单位来考虑数据切块。
 
-![image.png](images/Flash%20Attention/image%201.png)
+![Query 按 Warp 分工并遍历 Key 和 Value 分块](images/query-warp-partitioning.png)
 
 解释一下上面这张图，首先解释一下各个变量所指代的意义
 
@@ -261,7 +261,7 @@ __syncthreads();
 - A_tile (16x16) 需要四个 8x8 分块 - > 使用 `ldmatrix.x4`
 - B_tile (8x18) 需要两个 8x8 分块 - > 使用 `ldmatrix.x2`
 
-![image.png](images/Flash%20Attention/image%202.png)
+![ldmatrix 加载 A、B 矩阵时的线程与行布局](images/ldmatrix-operand-layouts.png)
 
 根据上图，想要使用 `ldmatrix` ，每个线程需要提供某一行的地址。线程 0-7 选择第 1 个 8x8 分块，线程 8-15 选择第 2 个 8x8 分块，依次类推。
 
@@ -297,11 +297,11 @@ __syncthreads();
  }
 ```
 
-![image.png](images/Flash%20Attention/image%203.png)
+![Query 从线程块、Warp 到 ldmatrix.x4 的分块关系](images/query-ldmatrix-x4-tiling.png)
 
 注意，前面说到，“每个线程需要提供某一行的地址”。这里做出具体说明，一个 16x16 的矩阵块，划分为 4 个 8x8 的更小矩阵块，一个 warp 当中每 8 个线程处理其中的某个小矩阵块，即 1x8 的块，这也就是针对某个线程需要具体计算得出的某一行的地址。
 
-![image.png](images/Flash%20Attention/image%204.png)
+![ldmatrix.x4 中各组 Lane 的行列偏移与分块位置](images/ldmatrix-x4-lane-offsets.png)
 
 ### Online softmax - CUDA C++
 
@@ -315,13 +315,13 @@ __syncthreads();
 float S_rmem[WARP_Q / MMA_M][BLOCK_KV / MMA_N][4];
 ```
 
-![image.png](images/Flash%20Attention/image%205.png)
+![MMA 累加结果中线程与 c0 至 c3 元素的对应关系](images/mma-accumulator-thread-layout.png)
 
 前面的两个维度表示 1 个 warp 处理的数据被 mma 切块；
 
  **`4`** 对应上图中的 c0、c1、c2、c3，也就是说，每个线程持有来自 2 行的 2 个连续元素。为了在（MMA 输出分块的）行内进行归约（reduction），我们首先对单个线程持有的 2 个连续元素进行归约，然后在 4 个线程组成的组内（即 T0-T3，T4-T7 等）进行归约。然而，行归约实际上是针对整个 **`tile_S`** 进行的，因此我们还需要遍历 **`S_rmem`** 中的 **`BLOCK_KV / MMA_N`** 这一维。这一步可以在进行 4 线程组归约之前，与线程级归约结合起来完成。
 
-![image.png](images/Flash%20Attention/image%206.png)
+![Online Softmax 行归约跨多个 MMA 分块的线程布局](images/softmax-row-reduction-tiles.png)
 
 这个地方引入 `__shfl_xor_sync` ，可以直接获取指定线程寄存器当中的值。在一个 MMA tile 中，4 个连续的线程编号负责一行数据，比如编号 id 为 0,1,2,3 的线程。分成两个步骤，第一步先比较 id 为 0 & 1 和 2 & 3 线程，第二步比较第一步获得的最大值，最终 4 个线程都取得最大值。
 
@@ -361,7 +361,7 @@ rowmax[mma_id_q][1] = this_rowmax[1];
 
 ### Profiling
 
-![image.png](images/Flash%20Attention/image%207.png)
+![Warp 状态分析中的流水线、记分板与屏障等待分布](images/warp-state-profile.png)
 
 上图的横轴表示平均每个调度器在任意一个时钟周期内，有多少个 Warp 处于该状态。
 

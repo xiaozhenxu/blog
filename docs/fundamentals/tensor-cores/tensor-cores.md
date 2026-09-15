@@ -6,9 +6,9 @@ Tensor Core 是 Nvidia 自 **Volta 架构，即 CUDA 9.0 版本**引入的专门
 
 每个 Tensor Core **在每个时钟周期内可以处理 4\*4\*4 的矩阵乘加运算，即 64 次 FMA**。如下图所表示的运算 $D=A*B+C$，其中 A 和 B 是 **FP16** 类型的矩阵，而累加矩阵 C 和 D 为 **FP16** 或者 **FP32** 类型。
 
-![Tensor Cores 图示](images/Tensor%20Cores/image.png)
+![Tensor Core 的矩阵乘加 D 等于 A 乘 B 加 C 及输入输出精度](images/tensor-core-matrix-multiply-accumulate.png)
 
-![示例图](images/Tensor%20Cores/image%201.png)
+![FP16 输入经过乘法与 FP32 累加后生成 FP32 结果](images/mixed-precision-accumulation.png)
 
 一个完整的 **Warp 会并发使用多个 TensorCore**，Warp 内的线程协作会提供一个更大的 **16\*16\*16** 的矩阵运算。我们可以通过调用 **C++ WMMA API** 来实现这些 Warp 级矩阵运算。
 

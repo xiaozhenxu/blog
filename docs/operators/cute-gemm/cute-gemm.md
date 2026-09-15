@@ -25,7 +25,7 @@ Tensor gA = local_tile(mA,
 											 make_coord(2, 2));
 ```
 
-![image.png](images/CUTE%20GEMM/image.png)
+![CuTe local_tile 的张量、分块形状与分块索引](images/local-tile-partitioning.png)
 
 > **Note**: `Int<N>{}` 的作用是将一个 数值 转变成一个 数据类型，这样做的好处是 
 1. 可以将大部分的数据从运行期搬到编译期实现 
@@ -78,7 +78,7 @@ mma.sync.aligned.m16n8k8.row.col.f16.f16.f16.f16
 
 一个 mma 指令需要一个 warp（32个线程） 协作完成，每个线程需要从 A/B/C 矩阵中获取指定位置上的元素，并存入寄存器中，再将寄存器喂给 mma 指令。比如计算 $16 \times 16 \times 8$ 矩阵乘法的时候，每个线程需要 4 个矩阵 A 元素、4 个矩阵 B 元素、8 个矩阵 C 元素。下图显示了矩阵元素与每个寄存器中寄存器的映射关系。
 
-![image.png](images/CUTE%20GEMM/image%201.png)
+![MMA 矩阵元素与线程及线程内数值索引的映射](images/mma-thread-value-layout.png)
 
 可以发现的是，如果使用手动的方法将矩阵元素映射到对应的线程寄存器上，是非常困难的。而 CuTe 帮助我们做到了这点，在 Layout Algebra 的加持下，CuTe 提供的 MMA API 帮助我们建立了上述复杂的映射关系。
 
@@ -170,7 +170,7 @@ TODO
 - **Tiled MMA shape**: 由 MMA Atom 在 MNK 维度的 **排布方式** 和 **执行次数** 共同组成
 - **Block Tile shape**: 在一个 block 当中，也就是一个 kernel 函数内，通过迭代的方式串行执行 Tiled MMA，共同组成了一个 Block 来负责的 tile
 
-![image.png](images/CUTE%20GEMM/image%202.png)
+![GEMM 从 Global、Block、Tiled MMA 到 MMA Atom 的分块层级](images/gemm-tiling-hierarchy.png)
 
 ## 4.1 Tiled MMA
 
@@ -188,7 +188,7 @@ using TiledMMA = decltype(make_tiled_mma(MMA_op{}));
 
 而实质上， `make_tiled_mma` 除了 `MMA_op` 还可以接受两个参数 `MMAThrLayout` 和 `MMATileLayout` 
 
-![image.png](images/CUTE%20GEMM/image%203.png)
+![make_tiled_mma 的 MMA 操作、线程扩展布局与分块布局参数](images/make-tiled-mma-layouts.png)
 
 - `MMA_op` 通常对应一个原子指令，与 `MMA_traits` `MMA_atom` 一一对应，封装了指令对应的数据处理形状、数据类型、线程数量等
 - `MMAThrLayout` cute当中的 `layout` 对象，规定了在 m n k 方向原子块(Atom)的堆叠数量，通过这个可以计算得到处理该 tile 的线程总数量
