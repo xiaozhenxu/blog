@@ -26,3 +26,10 @@ a:focus-visible,button:focus-visible,input:focus-visible { outline:2px solid var
 .notebook-home .md-content__inner::before { display:none; }
 .home-hero { padding-top:.7rem; padding-bottom:1.8rem; }
 @media(min-width:60em) { .md-grid { width:calc(100% - 4rem); max-width:66rem; } .notebook-home .md-content__inner { margin:0; } }
+
+/* One wordmark, shared by desktop and mobile headers. */
+.notebook-logo { display:inline-block; font-family:var(--notebook-mono); font-size:1.02rem; font-weight:500; line-height:1.3; white-space:nowrap; color:var(--md-default-fg-color); }
+.notebook-bracket { color:var(--md-typeset-a-color); }
+.notebook-brand { margin-left:.5rem; }
+.notebook-brand a { display:inline-flex; align-items:center; min-height:2.4rem; }
+@media(max-width:44em) { .notebook-brand { margin-left:.2rem; margin-right:.2rem; } .notebook-logo { font-size:.88rem; } }

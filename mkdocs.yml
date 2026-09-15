@@ -20,8 +20,6 @@ theme:
   name: material
   custom_dir: overrides
   font: false
-  icon:
-    logo: material/code-tags
   language: zh  # 设置为中文界面
   palette:
     - scheme: default
